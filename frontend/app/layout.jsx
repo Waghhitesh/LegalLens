@@ -12,7 +12,7 @@ export default function RootLayout({ children }) {
     <html lang="en">
       <body>
         {/* Ashoka Emblem Watermark */}
-        <div className="ashoka-watermark" aria-hidden="true">⚖</div>
+        <div className="ashoka-watermark" aria-hidden="true"></div>
 
         <div className="flex min-h-screen">
           <Sidebar />

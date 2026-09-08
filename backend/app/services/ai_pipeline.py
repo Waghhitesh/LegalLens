@@ -6,6 +6,7 @@ All models degrade gracefully if not installed.
 import base64
 import json
 import logging
+import os
 import re
 from typing import Optional
 
