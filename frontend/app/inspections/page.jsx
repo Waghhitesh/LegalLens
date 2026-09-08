@@ -60,9 +60,9 @@ export default function InspectionsPage() {
                     <td className="table-cell text-slate-500">{ins.date}</td>
                     <td className="table-cell text-slate-500">{ins.inspector}</td>
                     <td className="table-cell">
-                      {ins.status === "compliant" && <span className="status-pass">\u2713 Compliant</span>}
-                      {ins.status === "flagged" && <span className="status-fail">\u{1F6A9} Non-Compliant</span>}
-                      {ins.status === "review" && <span className="status-review">\u26A0 Review</span>}
+                      {ins.status === "compliant" && <span className="status-pass">✓ Compliant</span>}
+                      {ins.status === "flagged" && <span className="status-fail">🚩 Non-Compliant</span>}
+                      {ins.status === "review" && <span className="status-review">⚠ Review</span>}
                     </td>
                     <td className="table-cell">{ins.issues}</td>
                     <td className="table-cell">
@@ -74,7 +74,7 @@ export default function InspectionsPage() {
                       </div>
                     </td>
                     <td className="table-cell">
-                      <button className="text-blue-600 text-xs font-semibold hover:underline">View \u2192</button>
+                      <button className="text-blue-600 text-xs font-semibold hover:underline">View →</button>
                     </td>
                   </tr>
                 ))}

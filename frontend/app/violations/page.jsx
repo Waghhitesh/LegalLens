@@ -93,7 +93,7 @@ export default function ViolationsPage() {
                         }`}>{v.status.charAt(0).toUpperCase() + v.status.slice(1)}</span>
                       </td>
                       <td className="table-cell">
-                        <button className="text-blue-600 text-xs font-semibold hover:underline">View \u2192</button>
+                        <button className="text-blue-600 text-xs font-semibold hover:underline">View →</button>
                       </td>
                     </tr>
                   );

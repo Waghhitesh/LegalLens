@@ -9,7 +9,7 @@ export default function SettingsPage() {
       <div className="p-6 space-y-6">
         {/* Rule Engine */}
         <div className="card p-6">
-          <h3 className="text-base font-bold text-slate-800 mb-1">\u2696 Rule Engine Configuration</h3>
+          <h3 className="text-base font-bold text-slate-800 mb-1">⚖ Rule Engine Configuration</h3>
           <p className="text-xs text-slate-500 mb-4">Legal Metrology (Packaged Commodities) Rules, 2011</p>
           {RULE_CATEGORIES.map((cat) => (
             <div key={cat.id} className="mb-6">
@@ -22,7 +22,7 @@ export default function SettingsPage() {
                       <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center text-xs font-bold text-blue-600">{r.id.split('-')[1]}</div>
                       <div>
                         <p className="text-sm font-medium text-slate-700">{r.title}</p>
-                        <p className="text-[10px] text-slate-400">Type: {r.validationType} \u00B7 Severity: {r.severity}</p>
+                        <p className="text-[10px] text-slate-400">Type: {r.validationType} · Severity: {r.severity}</p>
                       </div>
                     </div>
                     <label className="relative inline-flex items-center cursor-pointer">
@@ -38,7 +38,7 @@ export default function SettingsPage() {
 
         {/* AI Configuration */}
         <div className="card p-6">
-          <h3 className="text-base font-bold text-slate-800 mb-4">\u{1F916} AI / OCR Configuration</h3>
+          <h3 className="text-base font-bold text-slate-800 mb-4">🤖 AI / OCR Configuration</h3>
           <div className="space-y-4">
             <div>
               <label className="text-xs font-semibold text-slate-600">Ollama Base URL</label>
