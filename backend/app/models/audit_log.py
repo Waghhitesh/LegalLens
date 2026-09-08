@@ -1,0 +1,40 @@
+import enum
+import uuid
+from datetime import datetime
+
+from sqlalchemy import Column, String, Float, DateTime, ForeignKey, Enum
+from sqlalchemy.types import Uuid as UUID
+from sqlalchemy.orm import relationship
+
+from app.db.database import Base
+
+
+class AuditStatus(str, enum.Enum):
+    PENDING = "PENDING"
+    PROCESSING = "PROCESSING"
+    PASS_ = "PASS"
+    FAIL = "FAIL"
+    ERROR = "ERROR"
+
+
+class AuditLog(Base):
+    __tablename__ = "audit_logs"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    product_id = Column(UUID(as_uuid=True), ForeignKey("products.id"), nullable=False)
+
+    physical_mrp = Column(Float, nullable=True)
+    physical_net_weight = Column(String, nullable=True)
+    physical_manufacturer = Column(String, nullable=True)
+    physical_country_of_origin = Column(String, nullable=True)
+    physical_consumer_care = Column(String, nullable=True)
+    detected_font_height_mm = Column(Float, nullable=True)
+
+    compliance_score = Column(Float, nullable=True)
+    status = Column(Enum(AuditStatus), nullable=False, default=AuditStatus.PENDING)
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    completed_at = Column(DateTime, nullable=True)
+
+    product = relationship("Product", back_populates="audit_logs")
+    violations = relationship("Violation", back_populates="audit_log", cascade="all, delete-orphan")
