@@ -10,7 +10,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.core.config import settings
 from app.db.database import init_db
-from app.routers import audit, dashboard, auth, users, agent
+from app.routers import audit, dashboard, auth, users, agent, notifications
 
 app = FastAPI(
     title="LegalLens — Automated Legal Metrology Compliance Architecture",
@@ -31,6 +31,7 @@ app.include_router(dashboard.router)
 app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(agent.router)
+app.include_router(notifications.router)
 
 # Serve uploaded images
 os.makedirs(settings.UPLOAD_DIR, exist_ok=True)

@@ -6,6 +6,11 @@ from app.models.product import SourceType
 
 class ProductURLSubmit(BaseModel):
     url: HttpUrl
+    location_lat: Optional[float] = None
+    location_lng: Optional[float] = None
+    location_address: Optional[str] = None
+    product_name: Optional[str] = None
+    brand_name: Optional[str] = None
 
 
 class ProductOut(BaseModel):

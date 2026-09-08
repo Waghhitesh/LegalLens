@@ -27,6 +27,7 @@ class User(Base):
     role = Column(Enum(UserRole), nullable=False, default=UserRole.CITIZEN)
     full_name = Column(String, nullable=True)
     organisation = Column(String, nullable=True)
+    area_jurisdiction = Column(String, nullable=True)  # e.g. 'Maharashtra', 'Delhi NCR'
     is_active = Column(Boolean, default=True)
     is_verified = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.utcnow)

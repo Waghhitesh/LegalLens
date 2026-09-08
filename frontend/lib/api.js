@@ -1,103 +1,143 @@
-import axios from "axios";
-import { getToken } from "./auth";
+// D:\sih-legal-metrology\frontend\lib\api.js
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
+const API_BASE = "http://localhost:8000";
 
-export const api = axios.create({ baseURL: API_BASE_URL });
-
-api.interceptors.request.use((config) => {
-  const token = getToken();
-  if (token) config.headers.Authorization = `Bearer ${token}`;
-  return config;
-});
-
-// Audit
-export async function submitUrlAudit(url) {
-  const { data } = await api.post("/api/v1/audit/url", { url });
-  return data;
-}
-export async function getAudit(auditId) {
-  const { data } = await api.get(`/api/v1/audit/${auditId}`);
-  return data;
-}
-export function downloadLegalNoticeUrl(auditId) {
-  return `${API_BASE_URL}/api/v1/audit/${auditId}/report`;
-}
-export function resolveMediaUrl(path) {
-  if (!path) return null;
-  if (path.startsWith("http")) return path;
-  return `${API_BASE_URL}${path.startsWith("/") ? path : "/" + path}`;
-}
-export async function submitUploadAudit(file, barcode = "") {
-  const form = new FormData();
-  form.append("file", file);
-  if (barcode) form.append("barcode", barcode);
-  const { data } = await api.post("/api/v1/audit/upload", form);
-  return data;
-}
-export async function submitBulkUpload(files) {
-  const form = new FormData();
-  files.forEach((f) => form.append("images", f));
-  const { data } = await api.post("/api/v1/audit/bulk-upload", form);
-  return data;
+function getHeaders(isFormData = false) {
+  const token = typeof window !== 'undefined' ? localStorage.getItem("token") : null;
+  const headers = {};
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+  if (!isFormData) {
+    headers["Content-Type"] = "application/json";
+  }
+  return headers;
 }
 
-// Dashboard
-export async function getDashboardStats() {
-  const { data } = await api.get("/api/v1/dashboard/stats");
-  return data;
-}
-export async function getRecentAudits(limit = 10) {
-  const { data } = await api.get(`/api/v1/dashboard/recent-audits?limit=${limit}`);
-  return data;
-}
-
-// Auth
-export async function requestOtp(target, purpose = "register") {
-  const { data } = await api.post("/api/v1/auth/otp/request", { target, purpose });
-  return data;
-}
-export async function verifyOtp(target, code, purpose = "register") {
-  const { data } = await api.post("/api/v1/auth/otp/verify", { target, code, purpose });
-  return data;
-}
-export async function registerUser(payload) {
-  const { data } = await api.post("/api/v1/auth/register", payload);
-  return data;
-}
 export async function loginUser(username, password) {
-  const { data } = await api.post("/api/v1/auth/login", { username, password });
-  return data;
-}
-export async function fetchMe() {
-  const { data } = await api.get("/api/v1/auth/me");
-  return data;
+  const formData = new URLSearchParams();
+  formData.append("username", username);
+  formData.append("password", password);
+
+  const res = await fetch(`${API_BASE}/api/v1/auth/login`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: formData.toString(),
+  });
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({ detail: "Login failed" }));
+    throw new Error(error.detail || "Login failed");
+  }
+  return res.json();
 }
 
-// Users (Admin)
-export async function fetchUsers() {
-  const { data } = await api.get("/api/v1/users");
-  return data;
-}
-export async function updateUser(userId, payload) {
-  const { data } = await api.patch(`/api/v1/users/${userId}`, payload);
-  return data;
-}
-export async function deleteUser(userId) {
-  await api.delete(`/api/v1/users/${userId}`);
-}
-export function exportUsersUrl(fmt = "csv") {
-  return `${API_BASE_URL}/api/v1/users/export/${fmt}`;
+export async function registerDirect(userData) {
+  const res = await fetch(`${API_BASE}/api/v1/auth/register-direct`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(userData),
+  });
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({ detail: "Registration failed" }));
+    throw new Error(error.detail || "Registration failed");
+  }
+  return res.json();
 }
 
-// Agent / Ollama
-export async function agentChat(message, history = []) {
-  const { data } = await api.post("/api/v1/agent/chat", { message, history });
-  return data;
+export async function requestOtp(target, purpose) {
+  const res = await fetch(`${API_BASE}/api/v1/auth/otp/request`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ target, purpose }),
+  });
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({ detail: "Failed to request OTP" }));
+    throw new Error(error.detail || "Failed to request OTP");
+  }
+  return res.json();
 }
+
+export async function registerUser(userData) {
+  const res = await fetch(`${API_BASE}/api/v1/auth/register`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(userData),
+  });
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({ detail: "Registration failed" }));
+    throw new Error(error.detail || "Registration failed");
+  }
+  return res.json();
+}
+
+export async function agentChat(message, history) {
+  const res = await fetch(`${API_BASE}/api/v1/agent/chat`, {
+    method: "POST",
+    headers: getHeaders(),
+    body: JSON.stringify({ message, history }),
+  });
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({ detail: "Chat failed" }));
+    throw new Error(error.detail || "Chat failed");
+  }
+  return res.json();
+}
+
 export async function agentAnalyzeImage(file) {
-  const form = new FormData();
-  form.append("image", file);
-  const { data } = await api.post("/api/v1/agent/analyze-image", form);
-  return data;
+  const formData = new FormData();
+  formData.append("file", file);
+  
+  const res = await fetch(`${API_BASE}/api/v1/agent/analyze-image`, {
+    method: "POST",
+    headers: getHeaders(true),
+    body: formData,
+  });
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({ detail: "Image analysis failed" }));
+    throw new Error(error.detail || "Image analysis failed");
+  }
+  return res.json();
+}
+
+export async function fetchUsers() {
+  const res = await fetch(`${API_BASE}/api/v1/users`, {
+    method: "GET",
+    headers: getHeaders(),
+  });
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({ detail: "Failed to fetch users" }));
+    throw new Error(error.detail || "Failed to fetch users");
+  }
+  return res.json();
+}
+
+export async function updateUser(id, data) {
+  const res = await fetch(`${API_BASE}/api/v1/users/${id}`, {
+    method: "PATCH",
+    headers: getHeaders(),
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({ detail: "Failed to update user" }));
+    throw new Error(error.detail || "Failed to update user");
+  }
+  return res.json();
+}
+
+export function exportUsersUrl(format) {
+  return `${API_BASE}/api/v1/users/export?format=${format}`;
+}
+
+export async function getNotifications() {
+  const res = await fetch(`${API_BASE}/api/v1/notifications`, {
+    method: "GET",
+    headers: getHeaders(),
+  });
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({ detail: "Failed to fetch notifications" }));
+    throw new Error(error.detail || "Failed to fetch notifications");
+  }
+  return res.json();
 }

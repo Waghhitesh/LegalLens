@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { isLoggedIn, getUsername, getRole } from "../lib/auth";
+import NotificationBell from "./NotificationBell";
 
 export default function TopNav({ title, subtitle }) {
   const [searchOpen, setSearchOpen] = useState(false);
@@ -22,10 +23,7 @@ export default function TopNav({ title, subtitle }) {
             />
           </div>
           {/* Notifications */}
-          <button className="relative p-2 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors">
-            <span className="text-lg">🔔</span>
-            <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full"></span>
-          </button>
+          <NotificationBell />
           {/* Profile */}
           <div className="flex items-center gap-2 pl-3 border-l border-slate-200">
             <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">

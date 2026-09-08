@@ -33,6 +33,13 @@ class AuditLog(Base):
     compliance_score = Column(Float, nullable=True)
     status = Column(Enum(AuditStatus), nullable=False, default=AuditStatus.PENDING)
 
+    location_lat = Column(Float, nullable=True)
+    location_lng = Column(Float, nullable=True)
+    location_address = Column(String, nullable=True)
+    product_name = Column(String, nullable=True)
+    brand_name = Column(String, nullable=True)
+    scan_timestamp = Column(DateTime, default=datetime.utcnow)
+
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     completed_at = Column(DateTime, nullable=True)
 

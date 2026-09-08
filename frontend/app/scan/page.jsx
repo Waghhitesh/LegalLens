@@ -1,370 +1,349 @@
 "use client";
-
 import { useState, useRef, useCallback } from "react";
-import { useRouter } from "next/navigation";
 import TopNav from "../../components/TopNav";
-import { submitUrlAudit, submitUploadAudit, submitBulkUpload, agentAnalyzeImage } from "../../lib/api";
-import { DEMO_DECLARATIONS, DEMO_COMPLIANCE_CHECKS } from "../../lib/demoData";
 
-const STEPS = ["Upload", "Processing", "Extraction", "Compliance", "Review"];
+const STEPS = [
+  { id: 1, label: "Uploading Image", icon: "📤" },
+  { id: 2, label: "Cropping PDP Region", icon: "✂️" },
+  { id: 3, label: "OCR Text Extraction", icon: "🔍" },
+  { id: 4, label: "AI Vision Analysis", icon: "🧠" },
+  { id: 5, label: "Rule Engine Check", icon: "⚖️" },
+  { id: 6, label: "Generating Report", icon: "📋" },
+];
 
 export default function ScanPage() {
-  const router = useRouter();
-  const fileRef = useRef(null);
-  const [mode, setMode] = useState("idle"); // idle | url | upload | processing | results
-  const [step, setStep] = useState(0);
-  const [url, setUrl] = useState("");
+  const [mode, setMode] = useState("idle"); // idle | processing | result | error
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState(null);
-  const [error, setError] = useState(null);
-  const [auditResult, setAuditResult] = useState(null);
-  const [declarations, setDeclarations] = useState([]);
-  const [checks, setChecks] = useState([]);
   const [dragOver, setDragOver] = useState(false);
-  const [processingMsg, setProcessingMsg] = useState("");
-  const [bulkFiles, setBulkFiles] = useState([]);
-  const [bulkResult, setBulkResult] = useState(null);
+  const [currentStep, setCurrentStep] = useState(0);
+  const [result, setResult] = useState(null);
+  const [error, setError] = useState(null);
+  const [productName, setProductName] = useState("");
+  const [brandName, setBrandName] = useState("");
+  const [location, setLocation] = useState(null);
+  const [locationAddress, setLocationAddress] = useState("");
+  const [decision, setDecision] = useState(null);
+  const fileRef = useRef(null);
 
-  const handleFileDrop = useCallback((e) => {
+  function handleFileSelect(selectedFile) {
+    if (!selectedFile) return;
+    setFile(selectedFile);
+    const url = URL.createObjectURL(selectedFile);
+    setPreview(url);
+    setMode("idle");
+    setResult(null);
+    setError(null);
+  }
+
+  function handleFileDrop(e) {
     e.preventDefault();
     setDragOver(false);
-    const f = e.dataTransfer?.files?.[0] || e.target?.files?.[0];
-    if (f) {
-      setFile(f);
-      setPreview(URL.createObjectURL(f));
-      setMode("upload");
-    }
-  }, []);
+    const f = e.dataTransfer.files?.[0];
+    if (f && f.type.startsWith("image/")) handleFileSelect(f);
+  }
 
-  const handleFileSelect = (e) => {
-    const f = e.target.files?.[0];
-    if (f) {
-      setFile(f);
-      setPreview(URL.createObjectURL(f));
-      setMode("upload");
-    }
-  };
+  async function getLocation() {
+    return new Promise((resolve) => {
+      if (!navigator.geolocation) { resolve(null); return; }
+      navigator.geolocation.getCurrentPosition(
+        (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+        () => resolve(null),
+        { timeout: 5000 }
+      );
+    });
+  }
 
-  async function runUrlAudit() {
-    if (!url) return;
+  async function startScan() {
+    if (!file) { setError("Please select an image first"); return; }
     setMode("processing");
-    setStep(1);
+    setCurrentStep(0);
     setError(null);
+
+    // Get location
+    setCurrentStep(1);
+    const loc = await getLocation();
+    setLocation(loc);
+    let addr = "";
+    if (loc) {
+      addr = `Lat: ${loc.lat.toFixed(4)}, Lng: ${loc.lng.toFixed(4)}`;
+      setLocationAddress(addr);
+    }
+
+    const formData = new FormData();
+    formData.append("file", file);
+    if (productName) formData.append("product_name", productName);
+    if (brandName) formData.append("brand_name", brandName);
+    if (loc) {
+      formData.append("location_lat", loc.lat.toString());
+      formData.append("location_lng", loc.lng.toString());
+      formData.append("location_address", addr);
+    }
+
+    // Simulate step progression
+    const stepDelay = (ms) => new Promise(r => setTimeout(r, ms));
+    const token = localStorage.getItem("token") || "";
+
     try {
-      setProcessingMsg("Scraping product page...");
-      const result = await submitUrlAudit(url);
-      setStep(2);
-      setProcessingMsg("Extracting declarations...");
-      await new Promise(r => setTimeout(r, 800));
-      setStep(3);
-      setProcessingMsg("Running compliance checks...");
-      await new Promise(r => setTimeout(r, 600));
-      setAuditResult(result);
-      setDeclarations(DEMO_DECLARATIONS);
-      setChecks(DEMO_COMPLIANCE_CHECKS);
-      setStep(4);
-      setMode("results");
+      setCurrentStep(2);
+      await stepDelay(600);
+      setCurrentStep(3);
+
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 60000);
+
+      const res = await fetch("http://localhost:8000/api/v1/audit/upload", {
+        method: "POST",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        body: formData,
+        signal: controller.signal,
+      });
+      clearTimeout(timeout);
+
+      setCurrentStep(4);
+      await stepDelay(400);
+      setCurrentStep(5);
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: "Upload failed" }));
+        throw new Error(err.detail || "Upload failed");
+      }
+
+      const data = await res.json();
+      setCurrentStep(6);
+      await stepDelay(300);
+
+      // Fetch full audit details
+      const auditRes = await fetch(`http://localhost:8000/api/v1/audit/${data.audit_id}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      const audit = auditRes.ok ? await auditRes.json() : data;
+      audit._audit_id = data.audit_id;
+      audit._product_id = data.product_id;
+      setResult(audit);
+      setMode("result");
     } catch (err) {
-      setError(err?.response?.data?.detail || err.message || "Audit failed");
-      setMode("idle");
-      setStep(0);
+      setError(err.name === "AbortError" ? "Request timed out (60s). The AI model may be loading — try again." : err.message);
+      setMode("error");
     }
   }
 
-  async function runImageAudit() {
-    if (!file) return;
-    setMode("processing");
-    setStep(1);
-    setError(null);
-    try {
-      setProcessingMsg("Reading package image...");
-      await new Promise(r => setTimeout(r, 500));
-      setStep(2);
-      setProcessingMsg("Extracting declarations with OCR...");
-      const result = await submitUploadAudit(file);
-      setStep(3);
-      setProcessingMsg("Running compliance checks...");
-      await new Promise(r => setTimeout(r, 600));
-      setAuditResult(result);
-      setDeclarations(DEMO_DECLARATIONS);
-      setChecks(DEMO_COMPLIANCE_CHECKS);
-      setStep(4);
-      setMode("results");
-    } catch (err) {
-      setError(err?.response?.data?.detail || err.message || "Audit failed");
-      setMode("idle");
-      setStep(0);
-    }
-  }
-
-  function loadDemoInspection() {
-    setMode("processing");
-    setStep(1);
-    setProcessingMsg("Loading demo package...");
-    setTimeout(() => {
-      setStep(2);
-      setProcessingMsg("Extracting declarations...");
-      setTimeout(() => {
-        setStep(3);
-        setProcessingMsg("Checking compliance...");
-        setTimeout(() => {
-          setDeclarations(DEMO_DECLARATIONS);
-          setChecks(DEMO_COMPLIANCE_CHECKS);
-          setAuditResult({ audit_id: "DEMO-001", status: "FAIL", product_id: "demo" });
-          setStep(4);
-          setMode("results");
-        }, 600);
-      }, 800);
-    }, 500);
-  }
-
-  async function handleBulkSubmit() {
-    if (!bulkFiles.length) return;
-    setMode("processing");
-    setProcessingMsg("Scanning multiple packages...");
-    try {
-      const data = await submitBulkUpload(Array.from(bulkFiles));
-      setBulkResult(data);
-      setMode("idle");
-    } catch (err) {
-      setError(err?.response?.data?.detail || "Bulk scan failed");
-      setMode("idle");
-    }
-  }
-
-  function resetAll() {
-    setMode("idle"); setStep(0); setUrl(""); setFile(null); setPreview(null);
-    setError(null); setAuditResult(null); setDeclarations([]); setChecks([]);
-    setProcessingMsg(""); setBulkResult(null);
-  }
+  const score = result?.compliance_score || 0;
+  const scoreColor = score >= 70 ? "text-green-600" : score >= 40 ? "text-amber-600" : "text-red-600";
+  const scoreBg = score >= 70 ? "bg-green-50 border-green-200" : score >= 40 ? "bg-amber-50 border-amber-200" : "bg-red-50 border-red-200";
 
   return (
     <div className="page-enter">
-      <TopNav title="Package Inspection" subtitle="Upload or scan a packaged commodity for compliance verification" />
+      <TopNav title="Scan Package" subtitle="Upload a product image for AI compliance analysis" />
       <div className="p-6 space-y-6">
-
-        {/* Progress Steps */}
-        <div className="flex items-center justify-center gap-2">
-          {STEPS.map((s, i) => (
-            <div key={s} className="flex items-center gap-2">
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold border-2 transition-all ${
-                i < step ? "step-done" : i === step ? "step-active" : "step-pending"
-              }`}>{i < step ? "✓" : i + 1}</div>
-              <span className={`text-xs font-medium ${i <= step ? "text-slate-700" : "text-slate-400"}`}>{s}</span>
-              {i < STEPS.length - 1 && <div className={`w-8 h-0.5 ${i < step ? "bg-green-500" : "bg-slate-200"}`}></div>}
-            </div>
-          ))}
-        </div>
-
-        {/* Processing Overlay */}
-        {mode === "processing" && (
-          <div className="card p-12 text-center">
-            <div className="w-16 h-16 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-4"></div>
-            <p className="text-lg font-semibold text-slate-700 mb-2">{processingMsg}</p>
-            <p className="text-xs text-slate-500">This may take a moment...</p>
-          </div>
-        )}
-
-        {/* Error */}
-        {error && (
-          <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-3">
-            <span className="text-red-500 text-lg">⚠</span>
-            <div>
-              <p className="text-sm font-semibold text-red-700">Inspection Error</p>
-              <p className="text-xs text-red-600 mt-1">{error}</p>
-            </div>
-            <button onClick={() => setError(null)} className="ml-auto text-red-400 hover:text-red-600">✕</button>
-          </div>
-        )}
-
-        {/* IDLE: Upload Options */}
-        {mode === "idle" && (
+        
+        {/* IDLE or Pre-Scan */}
+        {(mode === "idle" || mode === "error") && (
           <>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Image Upload */}
-              <div className="card p-6">
-                <h3 className="text-base font-bold text-slate-800 mb-1 flex items-center gap-2">
-                  <span className="text-xl">📷</span> Upload Package Image
-                </h3>
-                <p className="text-xs text-slate-500 mb-4">Drag and drop or select a product package photo</p>
-                <div
-                  onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-                  onDragLeave={() => setDragOver(false)}
-                  onDrop={handleFileDrop}
-                  onClick={() => fileRef.current?.click()}
-                  className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-colors ${
-                    dragOver ? "border-blue-500 bg-blue-50" : "border-slate-300 hover:border-blue-400 hover:bg-slate-50"
-                  }`}
-                >
-                  <input ref={fileRef} type="file" accept="image/*" onChange={handleFileSelect} className="hidden" />
-                  {preview ? (
-                    <div>
-                      <img src={preview} alt="Preview" className="max-h-48 mx-auto rounded-lg shadow mb-3" />
-                      <p className="text-sm font-medium text-slate-700">{file?.name}</p>
-                      <p className="text-xs text-slate-400">{(file?.size / 1024).toFixed(0)} KB</p>
-                    </div>
-                  ) : (
-                    <>
-                      <div className="text-4xl mb-3">📤</div>
-                      <p className="text-sm font-medium text-slate-600">Drop package image here</p>
-                      <p className="text-xs text-slate-400 mt-1">PNG, JPG, JPEG up to 10MB</p>
-                    </>
-                  )}
+            {/* Product Details */}
+            <div className="card p-6">
+              <h3 className="text-sm font-bold text-slate-700 mb-4">Product Details (Optional)</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-500 mb-1.5">Product Name</label>
+                  <input value={productName} onChange={e => setProductName(e.target.value)}
+                    placeholder="e.g. Parle-G Biscuits" className="input-field" />
                 </div>
-                {preview && (
-                  <button onClick={runImageAudit} className="btn-primary w-full mt-4 flex items-center justify-center gap-2">
-                    <span>🔍</span> Run Inspection
-                  </button>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-500 mb-1.5">Brand Name</label>
+                  <input value={brandName} onChange={e => setBrandName(e.target.value)}
+                    placeholder="e.g. Parle" className="input-field" />
+                </div>
+              </div>
+            </div>
+
+            {/* Upload Zone */}
+            <div className="card p-6">
+              <h3 className="text-sm font-bold text-slate-700 mb-1 flex items-center gap-2"><span>📷</span> Upload Package Image</h3>
+              <p className="text-xs text-slate-500 mb-4">Drag and drop or click to select a product package photo</p>
+              <div
+                onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+                onDragLeave={() => setDragOver(false)}
+                onDrop={handleFileDrop}
+                onClick={() => fileRef.current?.click()}
+                className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all ${
+                  dragOver ? "border-blue-400 bg-blue-50" : preview ? "border-green-400 bg-green-50" : "border-slate-300 hover:border-blue-400 hover:bg-blue-50/50"
+                }`}>
+                <input ref={fileRef} type="file" accept="image/*" className="hidden"
+                  onChange={e => handleFileSelect(e.target.files?.[0])} />
+                {preview ? (
+                  <div className="flex flex-col items-center gap-3">
+                    <img src={preview} alt="Preview" className="max-h-48 rounded-xl shadow-md object-contain" />
+                    <p className="text-sm text-green-700 font-semibold">✓ {file?.name}</p>
+                    <p className="text-xs text-slate-500">Click to change image</p>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center gap-3 text-slate-400">
+                    <span className="text-5xl">📦</span>
+                    <p className="text-sm font-medium">Drop package image here or click to browse</p>
+                    <p className="text-xs">Supports JPG, PNG, WEBP · Max 10MB</p>
+                  </div>
                 )}
               </div>
+            </div>
 
-              {/* URL Audit */}
-              <div className="card p-6">
-                <h3 className="text-base font-bold text-slate-800 mb-1 flex items-center gap-2">
-                  <span className="text-xl">🔗</span> Audit Product URL
-                </h3>
-                <p className="text-xs text-slate-500 mb-4">Paste an e-commerce product URL (Amazon, Flipkart, etc.)</p>
-                <input type="url" value={url} onChange={(e) => setUrl(e.target.value)}
-                  placeholder="https://www.amazon.in/product/..."
-                  className="input-field mb-4" />
-                <button onClick={runUrlAudit} disabled={!url} className="btn-primary w-full disabled:opacity-50 flex items-center justify-center gap-2">
-                  <span>🌐</span> Scrape & Audit
-                </button>
+            {/* Location notice */}
+            <div className="flex items-center gap-2 text-xs text-slate-500 bg-slate-50 rounded-xl px-4 py-3">
+              <span>📍</span>
+              <span>Clicking &quot;Start Scan&quot; will request your location for the audit report</span>
+            </div>
 
-                <div className="mt-6 pt-6 border-t border-slate-200">
-                  <h4 className="text-sm font-semibold text-slate-700 mb-3">📦 Bulk Scan (Shelf/Warehouse)</h4>
-                  <input type="file" multiple accept="image/*" onChange={(e) => setBulkFiles(e.target.files)}
-                    className="text-sm w-full file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-slate-100 file:text-slate-700 file:font-semibold cursor-pointer" />
-                  {bulkFiles.length > 0 && (
-                    <button onClick={handleBulkSubmit} className="btn-outline w-full mt-3 text-sm">
-                      Scan {bulkFiles.length} image{bulkFiles.length > 1 ? "s" : ""}
-                    </button>
-                  )}
+            {error && (
+              <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 flex items-start gap-2">
+                <span className="text-red-500">⚠️</span>
+                <p className="text-red-600 text-sm">{error}</p>
+              </div>
+            )}
+
+            <button onClick={startScan} disabled={!file}
+              className="btn-primary w-full py-3 text-base disabled:opacity-50 flex items-center justify-center gap-2">
+              <span>🔬</span> Start AI Compliance Scan
+            </button>
+          </>
+        )}
+
+        {/* PROCESSING */}
+        {mode === "processing" && (
+          <div className="card p-8">
+            <div className="text-center mb-8">
+              <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse">
+                <span className="text-3xl">🔬</span>
+              </div>
+              <h2 className="text-lg font-bold text-slate-800">AI Analysis in Progress</h2>
+              <p className="text-sm text-slate-500 mt-1">Processing your package image...</p>
+            </div>
+            <div className="space-y-3 max-w-md mx-auto">
+              {STEPS.map((step) => (
+                <div key={step.id} className={`flex items-center gap-4 p-3 rounded-xl transition-all ${
+                  currentStep > step.id ? "bg-green-50 border border-green-200" :
+                  currentStep === step.id ? "bg-blue-50 border border-blue-200" :
+                  "bg-slate-50 border border-slate-200"
+                }`}>
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
+                    currentStep > step.id ? "bg-green-500 text-white" :
+                    currentStep === step.id ? "bg-blue-500 text-white animate-pulse" :
+                    "bg-slate-200 text-slate-500"
+                  }`}>
+                    {currentStep > step.id ? "✓" : step.icon}
+                  </div>
+                  <div>
+                    <p className={`text-sm font-semibold ${
+                      currentStep > step.id ? "text-green-700" :
+                      currentStep === step.id ? "text-blue-700" : "text-slate-500"
+                    }`}>{step.label}</p>
+                    {currentStep === step.id && <p className="text-xs text-blue-500 mt-0.5">Processing...</p>}
+                    {currentStep > step.id && <p className="text-xs text-green-500 mt-0.5">Completed</p>}
+                  </div>
                 </div>
+              ))}
+            </div>
+            <p className="text-center text-xs text-slate-400 mt-6">First scan may take 30-60s while AI model initializes</p>
+          </div>
+        )}
 
-                <div className="mt-6 pt-6 border-t border-slate-200">
-                  <button onClick={loadDemoInspection} className="w-full border-2 border-dashed border-slate-300 hover:border-blue-400 rounded-lg py-3 text-sm font-semibold text-slate-600 hover:text-blue-600 transition-colors flex items-center justify-center gap-2">
-                    <span>🎯</span> Load Demo Inspection
-                  </button>
-                  <p className="text-[10px] text-slate-400 text-center mt-1">Pre-loaded example for demonstration</p>
+        {/* RESULT */}
+        {mode === "result" && result && (
+          <>
+            {/* Score Banner */}
+            <div className={`card p-6 border-2 ${scoreBg} flex items-center gap-6`}>
+              <div className="text-center">
+                <div className={`text-5xl font-black ${scoreColor}`}>{score.toFixed(0)}</div>
+                <div className="text-xs text-slate-500 mt-1">/ 100</div>
+              </div>
+              <div className="flex-1">
+                <h2 className={`text-xl font-bold ${scoreColor}`}>
+                  {score >= 70 ? "✅ Compliant" : score >= 40 ? "⚠️ Partially Compliant" : "❌ Non-Compliant"}
+                </h2>
+                <p className="text-sm text-slate-600 mt-1">
+                  {score >= 70 ? "Product meets all Legal Metrology requirements" : "Violations detected — see details below"}
+                </p>
+                <div className="flex items-center gap-4 mt-3 text-xs text-slate-500">
+                  <span>🕐 {new Date().toLocaleString("en-IN")}</span>
+                  {locationAddress && <span>📍 {locationAddress}</span>}
                 </div>
+              </div>
+              <div className="flex flex-col gap-2">
+                <a href={`http://localhost:8000/api/v1/audit/${result._audit_id}/report`} target="_blank"
+                  className="btn-primary text-sm flex items-center gap-2">📄 Download PDF</a>
+                <button onClick={() => { setMode("idle"); setResult(null); setFile(null); setPreview(null); }}
+                  className="btn-outline text-sm">🔄 New Scan</button>
               </div>
             </div>
 
-            {/* Bulk Results */}
-            {bulkResult && (
-              <div className="card p-5">
-                <h3 className="text-sm font-semibold text-slate-700 mb-3">Bulk Scan Results — {bulkResult.count} package(s)</h3>
-                <div className="space-y-2">
-                  {bulkResult.accepted?.map((a, i) => (
-                    <div key={i} className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
-                      <span className={`w-2.5 h-2.5 rounded-full ${a.status === 'PASS' || a.status === 'PASS_' ? 'bg-green-500' : a.status === 'FAIL' ? 'bg-red-500' : 'bg-amber-400'}`}></span>
-                      <span className="text-sm text-slate-600 flex-1">{a.filename}</span>
-                      <span className="text-xs font-semibold text-slate-500">{a.status === 'PASS_' ? 'PASS' : a.status}</span>
-                      <a href={`/inspector/${a.audit_id}`} className="text-xs text-blue-600 font-semibold hover:underline">View →</a>
+            {/* Product + Image */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="card p-6">
+                <h3 className="text-sm font-bold text-slate-700 mb-4">Detected Product Information</h3>
+                <div className="space-y-3">
+                  {[
+                    ["MRP (Detected)", result.physical_mrp ? `₹${result.physical_mrp}` : "—"],
+                    ["Net Weight", result.physical_net_weight || "—"],
+                    ["Manufacturer", result.physical_manufacturer || "—"],
+                    ["Country of Origin", result.physical_country_of_origin || "—"],
+                    ["Consumer Care", result.physical_consumer_care || "—"],
+                    ["Font Height", result.detected_font_height_mm ? `${result.detected_font_height_mm}mm` : "—"],
+                  ].map(([label, val]) => (
+                    <div key={label} className="flex items-center justify-between py-2 border-b border-slate-100">
+                      <span className="text-xs font-semibold text-slate-500">{label}</span>
+                      <span className="text-xs text-slate-800 font-medium">{val}</span>
                     </div>
                   ))}
                 </div>
               </div>
-            )}
-          </>
-        )}
-
-        {/* RESULTS */}
-        {mode === "results" && (
-          <>
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-bold text-slate-800">Inspection Results</h3>
-              <div className="flex gap-2">
-                {auditResult?.audit_id && !auditResult.audit_id.startsWith("DEMO") && (
-                  <a href={`/inspector/${auditResult.audit_id}`} className="btn-outline text-sm">Full Audit View →</a>
-                )}
-                <button onClick={resetAll} className="btn-outline text-sm">🔄 New Inspection</button>
+              <div className="card p-6">
+                <h3 className="text-sm font-bold text-slate-700 mb-4">Scanned Image</h3>
+                {preview && <img src={preview} alt="Scanned package" className="w-full max-h-48 object-contain rounded-xl" />}
+                <div className="mt-3 space-y-1 text-xs text-slate-500">
+                  <p><span className="font-semibold">Product:</span> {productName || "Not specified"}</p>
+                  <p><span className="font-semibold">Brand:</span> {brandName || "Not specified"}</p>
+                  <p><span className="font-semibold">Scan Time:</span> {new Date().toLocaleString("en-IN")}</p>
+                  {locationAddress && <p><span className="font-semibold">Location:</span> {locationAddress}</p>}
+                </div>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* LEFT: Image + Extracted Declarations */}
-              <div className="space-y-4">
-                {preview && (
-                  <div className="card p-4">
-                    <h4 className="text-sm font-semibold text-slate-700 mb-3">Package Image</h4>
-                    <img src={preview} alt="Package" className="w-full rounded-lg shadow" />
-                  </div>
-                )}
-                <div className="card p-4">
-                  <h4 className="text-sm font-semibold text-slate-700 mb-3">Extracted Declarations</h4>
-                  <div className="space-y-2">
-                    {declarations.map((d, i) => (
-                      <div key={i} className="flex items-start gap-3 p-3 rounded-lg bg-slate-50 hover:bg-slate-100 transition-colors">
-                        <span className={`mt-0.5 text-sm ${
-                          d.status === "detected" ? "text-green-500" : d.status === "missing" ? "text-red-500" : d.status === "review" ? "text-amber-500" : "text-slate-400"
-                        }`}>{d.status === "detected" ? "✓" : d.status === "missing" ? "✗" : d.status === "review" ? "⚠" : "—"}</span>
-                        <div className="flex-1">
-                          <p className="text-xs font-semibold text-slate-600">{d.field}</p>
-                          <p className="text-sm text-slate-800">{d.value || <span className="text-red-500 italic">Not detected</span>}</p>
-                        </div>
-                        <div className="text-right">
-                          {d.confidence > 0 && <p className="text-[10px] text-slate-400">{d.confidence}% conf.</p>}
-                          {d.evidence && <p className="text-[10px] text-blue-500 font-semibold">{d.evidence}</p>}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+            {/* Violations */}
+            <div className="card p-6">
+              <h3 className="text-sm font-bold text-slate-700 mb-4">
+                {(result.violations?.length || 0) === 0 ? "✅ No Violations" : `⚠️ Violations (${result.violations?.length || 0})`}
+              </h3>
+              {(!result.violations || result.violations.length === 0) ? (
+                <p className="text-green-600 text-sm">Product is fully compliant with all checked rules.</p>
+              ) : (
+                <div className="space-y-3">
+                  {result.violations.map((v, i) => (
+                    <div key={i} className="p-3 bg-red-50 border border-red-200 rounded-xl">
+                      <p className="text-xs font-bold text-red-700">{String(v.rule_type || "").replace(/_/g, " ")}</p>
+                      <p className="text-xs text-red-600 mt-1">{v.description}</p>
+                    </div>
+                  ))}
                 </div>
-              </div>
+              )}
+            </div>
 
-              {/* RIGHT: Compliance Checklist */}
-              <div className="space-y-4">
-                <div className="card p-4">
-                  <h4 className="text-sm font-semibold text-slate-700 mb-1">Legal Metrology Compliance Check</h4>
-                  <p className="text-[10px] text-slate-500 mb-4">Packaged Commodities Rules, 2011</p>
-                  <div className="space-y-2">
-                    {checks.map((c, i) => (
-                      <div key={i} className={`p-3 rounded-lg border ${
-                        c.status === "pass" ? "bg-green-50 border-green-200" :
-                        c.status === "fail" ? "bg-red-50 border-red-200" :
-                        "bg-amber-50 border-amber-200"
-                      }`}>
-                        <div className="flex items-start justify-between">
-                          <div>
-                            <p className="text-xs font-semibold text-slate-700">{c.rule}</p>
-                            <p className="text-sm text-slate-600 mt-0.5">{c.value}</p>
-                          </div>
-                          <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
-                            c.status === "pass" ? "bg-green-100 text-green-700" :
-                            c.status === "fail" ? "bg-red-100 text-red-700" :
-                            "bg-amber-100 text-amber-700"
-                          }`}>{c.status === "pass" ? "✓ PASS" : c.status === "fail" ? "✗ FAIL" : "⚠ REVIEW"}</span>
-                        </div>
-                        <div className="flex items-center justify-between mt-2">
-                          <p className="text-[10px] text-slate-500">Requirement: {c.requirement}</p>
-                          {c.evidence !== "N/A" && (
-                            <button className="text-[10px] text-blue-600 font-semibold hover:underline">View Evidence</button>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Officer Actions */}
-                <div className="card p-4">
-                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4">
-                    <p className="text-xs text-amber-800 font-medium">📋 AI-assisted finding — final decision requires officer validation.</p>
-                  </div>
-                  <h4 className="text-sm font-semibold text-slate-700 mb-3">Officer Decision</h4>
-                  <div className="flex gap-2">
-                    <button className="flex-1 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold py-2.5 rounded-lg transition-colors">✓ Mark Compliant</button>
-                    <button className="flex-1 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold py-2.5 rounded-lg transition-colors">🚩 Confirm Violations</button>
-                  </div>
-                  <button className="w-full mt-2 btn-outline text-sm">🔄 Request Recheck</button>
-                  {auditResult?.audit_id && !auditResult.audit_id.startsWith("DEMO") && (
-                    <a href={`http://localhost:8000/api/v1/audit/${auditResult.audit_id}/report`} target="_blank"
-                      className="w-full mt-2 btn-primary text-sm block text-center">📄 Generate PDF Report</a>
-                  )}
-                </div>
+            {/* Officer Decision */}
+            <div className="card p-6">
+              <h3 className="text-sm font-bold text-slate-700 mb-1">Officer Decision</h3>
+              <p className="text-xs text-slate-500 mb-4">AI finding requires human officer validation</p>
+              <div className="flex gap-3">
+                {[
+                  { label: "Approve", value: "approved", color: "bg-green-600 hover:bg-green-700", icon: "✓" },
+                  { label: "Flag", value: "flagged", color: "bg-red-600 hover:bg-red-700", icon: "🚩" },
+                  { label: "Escalate", value: "escalated", color: "bg-amber-600 hover:bg-amber-700", icon: "📨" },
+                ].map(btn => (
+                  <button key={btn.value}
+                    onClick={() => setDecision(btn.value)}
+                    className={`px-5 py-2.5 text-white text-sm font-bold rounded-xl transition-all ${btn.color} ${decision === btn.value ? "ring-4 ring-offset-2 ring-current" : ""}`}>
+                    {btn.icon} {btn.label}
+                  </button>
+                ))}
               </div>
+              {decision && <p className="text-xs text-slate-500 mt-3">Decision recorded: <span className="font-semibold capitalize">{decision}</span></p>}
             </div>
           </>
         )}

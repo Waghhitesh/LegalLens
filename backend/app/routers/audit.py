@@ -86,7 +86,16 @@ def audit_from_url(payload: ProductURLSubmit, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(product)
 
-    audit = AuditLog(product_id=product.id, status=AuditStatus.PROCESSING)
+    audit = AuditLog(
+        product_id=product.id, 
+        status=AuditStatus.PROCESSING,
+        location_lat=payload.location_lat,
+        location_lng=payload.location_lng,
+        location_address=payload.location_address,
+        product_name=payload.product_name,
+        brand_name=payload.brand_name,
+        scan_timestamp=datetime.utcnow()
+    )
     db.add(audit)
     db.commit()
     db.refresh(audit)
@@ -127,6 +136,11 @@ def audit_from_upload(
     barcode: str = Form(None),
     file: UploadFile = File(None),
     image: UploadFile = File(None),
+    location_lat: float = Form(None),
+    location_lng: float = Form(None),
+    location_address: str = Form(None),
+    product_name: str = Form(None),
+    brand_name: str = Form(None),
     db: Session = Depends(get_db),
 ):
     """Upload a physical package image for field-inspector audit."""
@@ -146,7 +160,16 @@ def audit_from_upload(
     product.package_image_path = image_path
     db.commit()
 
-    audit = AuditLog(product_id=product.id, status=AuditStatus.PROCESSING)
+    audit = AuditLog(
+        product_id=product.id, 
+        status=AuditStatus.PROCESSING,
+        location_lat=location_lat,
+        location_lng=location_lng,
+        location_address=location_address,
+        product_name=product_name,
+        brand_name=brand_name,
+        scan_timestamp=datetime.utcnow()
+    )
     db.add(audit)
     db.commit()
     db.refresh(audit)
@@ -219,7 +242,10 @@ def get_audit_report(audit_id: uuid.UUID, db: Session = Depends(get_db)):
     product_url = audit.product.url or f"Field Upload - Barcode: {audit.product.barcode}"
     pdf_path = generate_legal_notice_pdf(
         audit_id=str(audit.id), product_url=product_url,
-        violations=violations, compliance_score=audit.compliance_score or 0
+        violations=violations, compliance_score=audit.compliance_score or 0,
+        product_name=audit.product_name, brand_name=audit.brand_name,
+        scan_timestamp=audit.scan_timestamp, location_address=audit.location_address,
+        image_path=getattr(audit.product, "package_image_path", None)
     )
     return FileResponse(pdf_path, media_type="application/pdf",
                         filename=f"legal_notice_{audit.id}.pdf")

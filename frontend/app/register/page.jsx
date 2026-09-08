@@ -1,22 +1,20 @@
 "use client";
-
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { requestOtp, registerUser } from "../../lib/api";
 
 const ROLES = [
-  { value: "CITIZEN", label: "Citizen", desc: "Report packaging violations" },
-  { value: "SHOPKEEPER", label: "Shopkeeper", desc: "Verify your inventory compliance" },
-  { value: "COMPANY", label: "Company / Manufacturer", desc: "Check your product labels" },
-  { value: "GOVERNMENT_OFFICIAL", label: "Government Official", desc: "Full inspection access" },
+  { value: "CITIZEN", label: "Citizen", icon: "👤" },
+  { value: "SHOPKEEPER", label: "Shopkeeper", icon: "🏪" },
+  { value: "COMPANY", label: "Manufacturer", icon: "🏭" },
+  { value: "GOVERNMENT_OFFICIAL", label: "Gov. Official", icon: "🏛️" },
 ];
 
 export default function RegisterPage() {
   const router = useRouter();
   const [step, setStep] = useState(1);
   const [target, setTarget] = useState("");
-  const [otpCode, setOtpCode] = useState("");
-  const [form, setForm] = useState({ username: "", password: "", role: "CITIZEN", full_name: "", organisation: "" });
+  const [devOtp, setDevOtp] = useState("");
+  const [form, setForm] = useState({ username: "", password: "", otp_code: "", role: "CITIZEN", full_name: "", organisation: "", area_jurisdiction: "" });
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
 
@@ -24,105 +22,124 @@ export default function RegisterPage() {
     e.preventDefault();
     setLoading(true); setError(null);
     try {
-      await requestOtp(target, "register");
+      const res = await fetch("http://localhost:8000/api/v1/auth/otp/request", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ target, purpose: "register" }),
+      });
+      const data = await res.json();
+      if (data.dev_otp) { setDevOtp(data.dev_otp); setForm(f => ({...f, otp_code: data.dev_otp})); }
       setStep(2);
-    } catch (err) {
-      setError(err?.response?.data?.detail || "Failed to send OTP. In dev mode, check backend console for the code.");
-    } finally { setLoading(false); }
+    } catch { setError("Could not send OTP"); } finally { setLoading(false); }
   }
 
   async function handleRegister(e) {
     e.preventDefault();
     setLoading(true); setError(null);
     try {
-      await registerUser({ ...form, otp_target: target, otp_code: otpCode });
+      const res = await fetch("http://localhost:8000/api/v1/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...form, otp_target: target }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || "Registration failed");
       router.push("/login");
     } catch (err) {
-      setError(err?.response?.data?.detail || "Registration failed");
+      // Fallback: try direct register
+      try {
+        const res2 = await fetch("http://localhost:8000/api/v1/auth/register-direct", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username: form.username, password: form.password, role: form.role, full_name: form.full_name, organisation: form.organisation, email: target, area_jurisdiction: form.area_jurisdiction }),
+        });
+        const d2 = await res2.json();
+        if (!res2.ok) throw new Error(d2.detail || "Registration failed");
+        router.push("/login");
+      } catch (err2) { setError(err2.message); }
     } finally { setLoading(false); }
   }
 
   return (
-    <div className="page-enter" style={{ marginLeft: "-16rem" }}>
-      <div className="min-h-screen flex items-center justify-center bg-slate-50 p-8">
-        <div className="w-full max-w-md">
-          <div className="text-center mb-8">
-            <div className="w-14 h-14 bg-navy rounded-2xl flex items-center justify-center text-gold text-xl font-bold mx-auto mb-3">⚖</div>
-            <h1 className="text-2xl font-bold text-navy">Create Account</h1>
-            <p className="text-sm text-slate-500 mt-1">Join the Legal Metrology compliance platform</p>
+    <div style={{ marginLeft: 0 }} className="min-h-screen flex relative overflow-hidden" style={{ background: "linear-gradient(135deg, #0ea5e9 0%, #1d4ed8 50%, #1e3a8a 100%)", marginLeft: 0 }}>
+      <div className="absolute bottom-0 left-0 w-full overflow-hidden" style={{ height: "200px" }}>
+        <svg viewBox="0 0 1440 200" className="w-full h-full" preserveAspectRatio="none">
+          <path d="M0,160 C200,100 400,200 600,140 C800,80 1000,180 1200,120 C1320,80 1380,100 1440,90 L1440,200 L0,200 Z" fill="white" fillOpacity="0.15" />
+        </svg>
+      </div>
+      <div className="flex-1 flex flex-col justify-center px-16 relative z-10">
+        <div className="w-16 h-16 bg-white/20 backdrop-blur rounded-2xl flex items-center justify-center text-3xl mb-4">⚖️</div>
+        <h1 className="text-5xl font-black text-white leading-tight">Join<br/>LegalLens</h1>
+        <p className="text-white/80 text-lg mt-3 max-w-md">Create your account to access the AI-powered compliance inspection platform</p>
+      </div>
+      <div className="w-[500px] flex items-center justify-center p-8 relative z-10">
+        <div className="w-full bg-white/95 backdrop-blur-xl rounded-3xl shadow-2xl p-8">
+          <div className="flex gap-2 mb-6">
+            {[1,2].map(s => (
+              <div key={s} className={`flex-1 h-1.5 rounded-full transition-colors ${step >= s ? "bg-blue-600" : "bg-slate-200"}`}></div>
+            ))}
           </div>
+          <h2 className="text-xl font-bold text-slate-800 mb-1">{step === 1 ? "Verify Contact" : "Complete Profile"}</h2>
+          <p className="text-sm text-slate-500 mb-5">{step === 1 ? "We'll send a verification code" : "Fill your details below"}</p>
 
-          <div className="card p-8">
-            {/* Step indicator */}
-            <div className="flex items-center justify-center gap-3 mb-6">
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${step >= 1 ? "bg-blue-600 text-white" : "bg-slate-200 text-slate-400"}`}>1</div>
-              <div className={`w-12 h-0.5 ${step >= 2 ? "bg-blue-600" : "bg-slate-200"}`}></div>
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${step >= 2 ? "bg-blue-600 text-white" : "bg-slate-200 text-slate-400"}`}>2</div>
-            </div>
-            <p className="text-center text-xs text-slate-400 mb-6">{step === 1 ? "Verify your contact" : "Complete your profile"}</p>
+          {step === 1 && (
+            <form onSubmit={sendOtp} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1.5">Email Address</label>
+                <input type="email" required value={target} onChange={e => setTarget(e.target.value)} placeholder="you@example.com"
+                  className="w-full text-sm bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+              {error && <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-xl border border-red-200">{error}</p>}
+              <button type="submit" disabled={loading}
+                className="w-full py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-bold rounded-xl disabled:opacity-60">
+                {loading ? "Sending..." : "Send OTP"}
+              </button>
+              <p className="text-xs text-center text-slate-400">Already have an account? <a href="/login" className="text-blue-600 font-semibold">Sign in</a></p>
+            </form>
+          )}
 
-            {step === 1 && (
-              <form onSubmit={sendOtp} className="space-y-4">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-1.5">Email or Mobile</label>
-                  <input type="text" required placeholder="you@example.com or +91..." value={target}
-                    onChange={(e) => setTarget(e.target.value)} className="input-field" />
-                  <p className="text-[10px] text-slate-400 mt-1">In dev mode, OTP prints to the backend console.</p>
+          {step === 2 && (
+            <form onSubmit={handleRegister} className="space-y-3">
+              {devOtp && <div className="bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 text-xs text-amber-700">Dev OTP auto-filled: <b>{devOtp}</b></div>}
+              <div><label className="block text-xs font-semibold text-slate-600 mb-1">Verification Code</label>
+                <input type="text" required value={form.otp_code} onChange={e => setForm({...form, otp_code: e.target.value})} placeholder="6-digit code"
+                  className="w-full text-sm bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500" /></div>
+              <div className="grid grid-cols-2 gap-3">
+                <div><label className="block text-xs font-semibold text-slate-600 mb-1">Username</label>
+                  <input type="text" required value={form.username} onChange={e => setForm({...form, username: e.target.value})} placeholder="username"
+                    className="w-full text-sm bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500" /></div>
+                <div><label className="block text-xs font-semibold text-slate-600 mb-1">Password</label>
+                  <input type="password" required value={form.password} onChange={e => setForm({...form, password: e.target.value})} placeholder="password"
+                    className="w-full text-sm bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500" /></div>
+              </div>
+              <div><label className="block text-xs font-semibold text-slate-600 mb-1">Full Name</label>
+                <input type="text" value={form.full_name} onChange={e => setForm({...form, full_name: e.target.value})} placeholder="Your full name"
+                  className="w-full text-sm bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500" /></div>
+              <div><label className="block text-xs font-semibold text-slate-600 mb-1">Area / Jurisdiction</label>
+                <select value={form.area_jurisdiction} onChange={e => setForm({...form, area_jurisdiction: e.target.value})}
+                  className="w-full text-sm bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  <option value="">Select area</option>
+                  {["Maharashtra","Delhi NCR","Karnataka","Tamil Nadu","Gujarat","Rajasthan","Uttar Pradesh","West Bengal","Telangana","Kerala","Punjab","Haryana"].map(a => <option key={a} value={a}>{a}</option>)}
+                </select></div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">Role</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {ROLES.map(r => (
+                    <button key={r.value} type="button" onClick={() => setForm({...form, role: r.value})}
+                      className={`p-2.5 rounded-xl border-2 text-left transition-all ${form.role === r.value ? "border-blue-500 bg-blue-50" : "border-slate-200"}`}>
+                      <span className="text-lg">{r.icon}</span>
+                      <p className="text-xs font-semibold text-slate-700 mt-0.5">{r.label}</p>
+                    </button>
+                  ))}
                 </div>
-                {error && <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg border border-red-200">{error}</p>}
-                <button type="submit" disabled={loading} className="btn-primary w-full">
-                  {loading ? "Sending..." : "Send OTP"}
-                </button>
-              </form>
-            )}
-
-            {step === 2 && (
-              <form onSubmit={handleRegister} className="space-y-4">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-1.5">OTP Code</label>
-                  <input type="text" required placeholder="Enter 6-digit code" value={otpCode}
-                    onChange={(e) => setOtpCode(e.target.value)} className="input-field" />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-1.5">Username</label>
-                  <input type="text" required placeholder="Choose a username" value={form.username}
-                    onChange={(e) => setForm({ ...form, username: e.target.value })} className="input-field" />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-1.5">Password</label>
-                  <input type="password" required placeholder="Create a password" value={form.password}
-                    onChange={(e) => setForm({ ...form, password: e.target.value })} className="input-field" />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-1.5">Full Name</label>
-                  <input type="text" placeholder="Your full name" value={form.full_name}
-                    onChange={(e) => setForm({ ...form, full_name: e.target.value })} className="input-field" />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-1.5">Role</label>
-                  <div className="grid grid-cols-2 gap-2">
-                    {ROLES.map((r) => (
-                      <button key={r.value} type="button" onClick={() => setForm({ ...form, role: r.value })}
-                        className={`p-3 rounded-lg border-2 text-left transition-colors ${
-                          form.role === r.value ? "border-blue-500 bg-blue-50" : "border-slate-200 hover:border-slate-300"
-                        }`}>
-                        <p className="text-xs font-semibold text-slate-700">{r.label}</p>
-                        <p className="text-[10px] text-slate-400">{r.desc}</p>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                {error && <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg border border-red-200">{error}</p>}
-                <button type="submit" disabled={loading} className="btn-primary w-full">
-                  {loading ? "Creating account..." : "Create Account"}
-                </button>
-              </form>
-            )}
-
-            <p className="text-xs text-slate-400 mt-6 text-center">
-              Already have an account? <a href="/login" className="text-blue-600 font-semibold hover:underline">Sign in →</a>
-            </p>
-          </div>
+              </div>
+              {error && <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-xl border border-red-200">{error}</p>}
+              <button type="submit" disabled={loading}
+                className="w-full py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-bold rounded-xl disabled:opacity-60">
+                {loading ? "Creating account..." : "Create Account"}
+              </button>
+            </form>
+          )}
         </div>
       </div>
     </div>
