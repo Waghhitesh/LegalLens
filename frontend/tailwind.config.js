@@ -4,16 +4,12 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        compliance: { pass: "#16a34a", warn: "#f59e0b", fail: "#dc2626" },
-        paper: { DEFAULT: "#f6f1e4", dark: "#ece3cd" },
-        ink: { DEFAULT: "#1a1a1a" },
-        maroon: { DEFAULT: "#6b1e23", dark: "#4a1418" },
-        navy: { DEFAULT: "#11213d", light: "#1c3059" },
-        gold: { DEFAULT: "#c9a227", light: "#e8cf7a" },
+        navy: { DEFAULT: '#0f172a', light: '#1e293b', '600': '#334155' },
+        gold: { DEFAULT: '#d4a843', light: '#e8cf7a' },
       },
       fontFamily: {
-        display: ["Cormorant Garamond", "serif"],
-        ui: ["Inter", "sans-serif"],
+        sans: ['Inter', 'system-ui', 'sans-serif'],
+        display: ['Playfair Display', 'serif'],
       },
     },
   },

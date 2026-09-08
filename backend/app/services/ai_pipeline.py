@@ -58,7 +58,8 @@ def crop_pdp(image_path: str) -> str:
             img = cv2.imread(image_path)
             x1, y1, x2, y2 = map(int, largest)
             cropped = img[y1:y2, x1:x2]
-            out = image_path.replace(".", "_pdp.")
+            name, ext = os.path.splitext(image_path)
+            out = f"{name}_pdp{ext}"
             cv2.imwrite(out, cropped)
             return out
     except Exception as e:

@@ -1,97 +1,151 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { agentChat } from "../lib/api";
+import { useState, useRef, useEffect } from "react";
+import { agentChat, agentAnalyzeImage } from "../lib/api";
 
 export default function OllamaAgentWidget() {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState([
-    { role: "assistant", content: "I'm your local Ollama compliance agent. Ask me about a Rule, or paste an issue you found." },
+    { role: "assistant", content: "Namaste! I'm your Legal Metrology compliance assistant. Ask me about the Packaged Commodities Rules 2011, inspection procedures, or upload a package image for quick analysis." },
   ]);
   const [input, setInput] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState(null);
-  const bottomRef = useRef(null);
+  const [loading, setLoading] = useState(false);
+  const [imgFile, setImgFile] = useState(null);
+  const scrollRef = useRef(null);
+  const imgRef = useRef(null);
 
-  async function handleSend(e) {
-    e.preventDefault();
-    if (!input.trim()) return;
-    const next = [...messages, { role: "user", content: input }];
-    setMessages(next);
-    setInput("");
-    setBusy(true);
-    setError(null);
-    try {
-      const { reply } = await agentChat(
-        input,
-        next.filter((m) => m.role !== "system").slice(-8)
-      );
-      setMessages((prev) => [...prev, { role: "assistant", content: reply }]);
-    } catch (err) {
-      setError(
-        err.response?.data?.detail ||
-          "Could not reach your local Ollama agent. Make sure `ollama serve` is running."
-      );
-    } finally {
-      setBusy(false);
-      setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
+  useEffect(() => {
+    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+  }, [messages]);
+
+  async function send(e) {
+    e?.preventDefault();
+    if (!input.trim() && !imgFile) return;
+
+    if (imgFile) {
+      setMessages((m) => [...m, { role: "user", content: `[Image: ${imgFile.name}]` }]);
+      setLoading(true);
+      try {
+        const result = await agentAnalyzeImage(imgFile);
+        const reply =
+          `**Package Analysis:**\n\n` +
+          `✅ Present: ${(result.present || []).join(", ") || "None detected"}\n\n` +
+          `❌ Missing: ${(result.missing || []).join(", ") || "All present"}\n\n` +
+          `${result.raw_notes ? `📝 Notes: ${result.raw_notes}` : ""}`;
+        setMessages((m) => [...m, { role: "assistant", content: reply }]);
+      } catch {
+        setMessages((m) => [...m, { role: "assistant", content: "⚠️ Could not analyze image. Make sure Ollama is running with `ollama serve` and the llava model is pulled." }]);
+      }
+      setImgFile(null);
+      setLoading(false);
+      return;
     }
+
+    const userMsg = input.trim();
+    setInput("");
+    setMessages((m) => [...m, { role: "user", content: userMsg }]);
+    setLoading(true);
+    try {
+      const history = messages.filter(m => m.role !== "system").slice(-10);
+      const data = await agentChat(userMsg, history);
+      setMessages((m) => [...m, { role: "assistant", content: data.reply }]);
+    } catch {
+      setMessages((m) => [...m, { role: "assistant", content: "⚠️ Could not reach Ollama. Make sure `ollama serve` is running and the llava model is available." }]);
+    }
+    setLoading(false);
   }
 
   return (
-    <div className="fixed bottom-5 right-5 z-20 font-ui">
+    <>
+      {/* Toggle Button */}
+      <button
+        onClick={() => setOpen(!open)}
+        className="fixed bottom-6 right-6 z-50 w-14 h-14 bg-gradient-to-br from-blue-600 to-navy rounded-full shadow-xl hover:shadow-2xl transition-all flex items-center justify-center text-white text-xl group"
+        title="Compliance Assistant"
+      >
+        {open ? "✕" : "⚖"}
+        <span className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-white"></span>
+      </button>
+
+      {/* Chat Panel */}
       {open && (
-        <div className="w-80 sm:w-96 h-[28rem] bg-paper border-2 border-gold/50 rounded-2xl shadow-2xl flex flex-col overflow-hidden mb-3">
-          <div className="bg-navy text-paper px-4 py-3 flex items-center justify-between">
+        <div className="fixed bottom-24 right-6 z-50 w-96 bg-white rounded-2xl shadow-2xl border border-slate-200 flex flex-col overflow-hidden" style={{ height: "500px" }}>
+          {/* Header */}
+          <div className="bg-navy px-4 py-3 flex items-center gap-3">
+            <div className="w-8 h-8 bg-gradient-to-br from-gold to-yellow-500 rounded-lg flex items-center justify-center text-navy text-sm font-bold">⚖</div>
             <div>
-              <p className="text-sm font-semibold">Local Agent</p>
-              <p className="text-[10px] text-gold-light">Ollama • llama3.2-vision • runs on your PC</p>
+              <p className="text-white text-sm font-semibold">Compliance Assistant</p>
+              <p className="text-slate-400 text-[10px]">Powered by Local LLM (Ollama)</p>
             </div>
-            <button onClick={() => setOpen(false)} className="text-paper/70 hover:text-paper text-lg leading-none">×</button>
+            <div className="ml-auto flex items-center gap-1">
+              <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+              <span className="text-green-400 text-[10px]">Online</span>
+            </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto px-3 py-3 space-y-2">
+          {/* Messages */}
+          <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50">
             {messages.map((m, i) => (
-              <div
-                key={i}
-                className={`text-xs px-3 py-2 rounded-lg max-w-[85%] ${
+              <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
+                <div className={`max-w-[80%] px-3 py-2 rounded-xl text-sm whitespace-pre-wrap ${
                   m.role === "user"
-                    ? "bg-navy text-paper ml-auto"
-                    : "bg-gold/15 text-ink border border-gold/30"
-                }`}
-              >
-                {m.content}
+                    ? "bg-blue-600 text-white rounded-br-md"
+                    : "bg-white border border-slate-200 text-slate-700 rounded-bl-md shadow-sm"
+                }`}>
+                  {m.content}
+                </div>
               </div>
             ))}
-            {error && <p className="text-xs text-maroon">{error}</p>}
-            <div ref={bottomRef} />
+            {loading && (
+              <div className="flex justify-start">
+                <div className="bg-white border border-slate-200 rounded-xl px-4 py-3 shadow-sm">
+                  <div className="flex gap-1">
+                    <span className="w-2 h-2 bg-slate-400 rounded-full animate-bounce"></span>
+                    <span className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: "0.1s" }}></span>
+                    <span className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: "0.2s" }}></span>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
-          <form onSubmit={handleSend} className="flex gap-2 p-2 border-t border-gold/30">
+          {/* Image preview */}
+          {imgFile && (
+            <div className="px-4 py-2 bg-blue-50 border-t border-blue-200 flex items-center gap-2">
+              <span className="text-sm">📷</span>
+              <span className="text-xs text-blue-700 flex-1 truncate">{imgFile.name}</span>
+              <button onClick={() => setImgFile(null)} className="text-blue-400 hover:text-blue-600 text-xs">✕</button>
+            </div>
+          )}
+
+          {/* Input */}
+          <form onSubmit={send} className="p-3 border-t border-slate-200 bg-white flex items-center gap-2">
             <input
+              ref={imgRef}
+              type="file"
+              accept="image/*"
+              onChange={(e) => setImgFile(e.target.files?.[0])}
+              className="hidden"
+            />
+            <button type="button" onClick={() => imgRef.current?.click()}
+              className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Analyze package image">
+              📷
+            </button>
+            <input
+              type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Ask about a rule…"
-              className="flex-1 text-xs border border-gold/40 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-1 focus:ring-gold"
+              placeholder="Ask about compliance rules..."
+              disabled={loading}
+              className="flex-1 text-sm bg-slate-100 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
-            <button
-              type="submit"
-              disabled={busy}
-              className="text-xs px-3 py-2 rounded-lg bg-gold text-navy font-semibold disabled:opacity-40"
-            >
-              {busy ? "…" : "Send"}
+            <button type="submit" disabled={loading || (!input.trim() && !imgFile)}
+              className="p-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-lg transition-colors">
+              ➤
             </button>
           </form>
         </div>
       )}
-
-      <button
-        onClick={() => setOpen((v) => !v)}
-        className="w-14 h-14 rounded-full bg-navy border-2 border-gold shadow-xl flex items-center justify-center text-gold hover:scale-105 transition-transform"
-        title="Local Ollama agent"
-      >
-        <span className="text-2xl">🪔</span>
-      </button>
-    </div>
+    </>
   );
 }

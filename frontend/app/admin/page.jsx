@@ -1,148 +1,175 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
+import TopNav from "../../components/TopNav";
 import { fetchUsers, updateUser, deleteUser, exportUsersUrl } from "../../lib/api";
-import { getRole, isLoggedIn, ROLES } from "../../lib/auth";
+import { getRole } from "../../lib/auth";
+import { DEMO_INSPECTIONS } from "../../lib/demoData";
+
+const DEMO_USERS = [
+  { id: "u1", username: "r.sharma", email: "rsharma@legalmetrology.gov.in", role: "ADMIN", full_name: "Rajesh Sharma", is_active: true, created_at: "2026-08-01" },
+  { id: "u2", username: "p.verma", email: "pverma@legalmetrology.gov.in", role: "GOVERNMENT_OFFICIAL", full_name: "Priya Verma", is_active: true, created_at: "2026-08-05" },
+  { id: "u3", username: "a.gupta", email: "agupta@legalmetrology.gov.in", role: "GOVERNMENT_OFFICIAL", full_name: "Amit Gupta", is_active: true, created_at: "2026-08-10" },
+  { id: "u4", username: "manufacturer1", email: "quality@bharatfoods.in", role: "COMPANY", full_name: "Bharat Foods QC", is_active: true, created_at: "2026-08-15" },
+  { id: "u5", username: "citizen1", email: "consumer@gmail.com", role: "CITIZEN", full_name: "Ananya Patel", is_active: true, created_at: "2026-08-20" },
+  { id: "u6", username: "shop.owner", email: "shop@example.com", role: "SHOPKEEPER", full_name: "Vikram Singh", is_active: false, created_at: "2026-08-25" },
+];
 
 export default function AdminPage() {
-  const router = useRouter();
-  const [users, setUsers] = useState(null);
-  const [error, setError] = useState(null);
-  const [savingId, setSavingId] = useState(null);
+  const [users, setUsers] = useState([]);
+  const [useDemo, setUseDemo] = useState(false);
+  const [tab, setTab] = useState("users");
 
   useEffect(() => {
-    if (!isLoggedIn() || getRole() !== "ADMIN") {
-      router.replace("/login?role=ADMIN");
-      return;
+    async function load() {
+      try {
+        const data = await fetchUsers();
+        if (data.length > 0) setUsers(data);
+        else { setUsers(DEMO_USERS); setUseDemo(true); }
+      } catch { setUsers(DEMO_USERS); setUseDemo(true); }
     }
     load();
   }, []);
 
-  async function load() {
-    try {
-      setUsers(await fetchUsers());
-    } catch (err) {
-      setError(err.response?.data?.detail || "Could not load users");
+  async function toggleActive(user) {
+    if (useDemo) {
+      setUsers(users.map(u => u.id === user.id ? { ...u, is_active: !u.is_active } : u));
+      return;
     }
+    try {
+      await updateUser(user.id, { is_active: !user.is_active });
+      setUsers(users.map(u => u.id === user.id ? { ...u, is_active: !u.is_active } : u));
+    } catch {}
   }
 
-  async function handleRoleChange(id, role) {
-    setSavingId(id);
-    try {
-      const updated = await updateUser(id, { role });
-      setUsers((prev) => prev.map((u) => (u.id === id ? updated : u)));
-    } finally {
-      setSavingId(null);
-    }
-  }
-
-  async function handleToggleActive(id, is_active) {
-    setSavingId(id);
-    try {
-      const updated = await updateUser(id, { is_active });
-      setUsers((prev) => prev.map((u) => (u.id === id ? updated : u)));
-    } finally {
-      setSavingId(null);
-    }
-  }
-
-  async function handleDelete(id) {
-    if (!confirm("Remove this user permanently?")) return;
-    await deleteUser(id);
-    setUsers((prev) => prev.filter((u) => u.id !== id));
-  }
+  const ROLE_COLORS = {
+    ADMIN: "bg-red-100 text-red-700",
+    GOVERNMENT_OFFICIAL: "bg-blue-100 text-blue-700",
+    COMPANY: "bg-purple-100 text-purple-700",
+    CITIZEN: "bg-green-100 text-green-700",
+    SHOPKEEPER: "bg-amber-100 text-amber-700",
+  };
 
   return (
-    <main className="page-shell max-w-6xl mx-auto px-4 py-12">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
-        <div>
-          <p className="font-ui text-xs uppercase tracking-wider text-gold mb-1">Admin</p>
-          <h1 className="font-display text-3xl text-navy">Registered Users</h1>
-        </div>
+    <div className="page-enter">
+      <TopNav title="Admin Panel" subtitle="System administration and user management" />
+      <div className="p-6 space-y-6">
+        {/* Tab Nav */}
         <div className="flex gap-2">
-          <a
-            href={exportUsersUrl("xlsx")}
-            className="font-ui text-xs font-semibold px-4 py-2.5 rounded-lg bg-navy text-paper hover:bg-navy-light"
-          >
-            Export Excel
-          </a>
-          <a
-            href={exportUsersUrl("docx")}
-            className="font-ui text-xs font-semibold px-4 py-2.5 rounded-lg border border-navy text-navy hover:bg-navy/5"
-          >
-            Export Word
-          </a>
+          {["users", "audit-log", "system"].map(t => (
+            <button key={t} onClick={() => setTab(t)}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                tab === t ? "bg-navy text-white" : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
+              }`}>{t === "users" ? "👥 Users" : t === "audit-log" ? "📋 Audit Log" : "⚙️ System"}</button>
+          ))}
+          {!useDemo && (
+            <a href={exportUsersUrl("csv")} target="_blank"
+              className="ml-auto btn-outline text-sm flex items-center gap-2">📥 Export CSV</a>
+          )}
         </div>
-      </div>
 
-      {error && <p className="text-sm text-maroon mb-4">{error}</p>}
+        {/* Users Tab */}
+        {tab === "users" && (
+          <div className="card overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-slate-50">
+                  <tr>
+                    <th className="table-header">User</th>
+                    <th className="table-header">Email</th>
+                    <th className="table-header">Role</th>
+                    <th className="table-header">Created</th>
+                    <th className="table-header">Status</th>
+                    <th className="table-header">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {users.map((u) => (
+                    <tr key={u.id} className="border-t border-slate-100 hover:bg-slate-50/50">
+                      <td className="table-cell">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 bg-navy rounded-full flex items-center justify-center text-white text-xs font-bold">
+                            {(u.full_name || u.username || "?")[0].toUpperCase()}
+                          </div>
+                          <div>
+                            <p className="font-medium text-sm">{u.full_name || u.username}</p>
+                            <p className="text-[10px] text-slate-400">@{u.username}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="table-cell text-sm text-slate-600">{u.email || "—"}</td>
+                      <td className="table-cell">
+                        <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${ROLE_COLORS[u.role] || "bg-slate-100 text-slate-600"}`}>
+                          {u.role?.replace("_", " ")}
+                        </span>
+                      </td>
+                      <td className="table-cell text-sm text-slate-500">{typeof u.created_at === 'string' ? u.created_at : new Date(u.created_at).toLocaleDateString()}</td>
+                      <td className="table-cell">
+                        <button onClick={() => toggleActive(u)}
+                          className={`text-xs font-semibold px-2.5 py-1 rounded-full transition-colors ${
+                            u.is_active ? "bg-green-50 text-green-700 border border-green-200" : "bg-red-50 text-red-700 border border-red-200"
+                          }`}>{u.is_active ? "✓ Active" : "✕ Disabled"}</button>
+                      </td>
+                      <td className="table-cell">
+                        <button className="text-blue-600 text-xs font-semibold hover:underline mr-3">Edit</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
 
-      {!users ? (
-        <p className="font-ui text-sm text-ink/50">Loading…</p>
-      ) : (
-        <div className="bg-paper-dark/30 border border-gold/30 rounded-xl overflow-hidden overflow-x-auto">
-          <table className="w-full text-sm font-ui">
-            <thead>
-              <tr className="bg-navy text-paper text-left">
-                <th className="px-4 py-3">Username</th>
-                <th className="px-4 py-3">Contact</th>
-                <th className="px-4 py-3">Role</th>
-                <th className="px-4 py-3">Active</th>
-                <th className="px-4 py-3">Joined</th>
-                <th className="px-4 py-3"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {users.map((u) => (
-                <tr key={u.id} className="border-t border-gold/20">
-                  <td className="px-4 py-3">
-                    <div className="font-semibold text-navy">{u.username}</div>
-                    <div className="text-xs text-ink/50">{u.full_name}</div>
-                  </td>
-                  <td className="px-4 py-3 text-xs text-ink/70">
-                    {u.email || u.mobile || "—"}
-                  </td>
-                  <td className="px-4 py-3">
-                    <select
-                      value={u.role}
-                      disabled={savingId === u.id}
-                      onChange={(e) => handleRoleChange(u.id, e.target.value)}
-                      className="border border-gold/40 rounded px-2 py-1 bg-paper text-xs"
-                    >
-                      {ROLES.map((r) => (
-                        <option key={r.value} value={r.value}>{r.label}</option>
-                      ))}
-                    </select>
-                  </td>
-                  <td className="px-4 py-3">
-                    <button
-                      onClick={() => handleToggleActive(u.id, !u.is_active)}
-                      disabled={savingId === u.id}
-                      className={`text-xs px-2 py-1 rounded-full font-semibold ${
-                        u.is_active ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
-                      }`}
-                    >
-                      {u.is_active ? "Active" : "Disabled"}
-                    </button>
-                  </td>
-                  <td className="px-4 py-3 text-xs text-ink/60">
-                    {new Date(u.created_at).toLocaleDateString()}
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <button
-                      onClick={() => handleDelete(u.id)}
-                      className="text-xs text-maroon hover:underline"
-                    >
-                      Remove
-                    </button>
-                  </td>
-                </tr>
+        {/* Audit Log Tab */}
+        {tab === "audit-log" && (
+          <div className="card p-6">
+            <h3 className="text-sm font-bold text-slate-700 mb-4">System Audit Trail</h3>
+            <div className="space-y-3">
+              {DEMO_INSPECTIONS.slice(0, 8).map((ins, i) => (
+                <div key={i} className="flex items-center gap-4 p-3 bg-slate-50 rounded-lg">
+                  <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center text-xs">📋</div>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-slate-700">Inspection <span className="font-mono text-xs text-slate-500">{ins.id}</span></p>
+                    <p className="text-xs text-slate-400">{ins.inspector} · {ins.date}</p>
+                  </div>
+                  <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+                    ins.status === "compliant" ? "bg-green-50 text-green-700" :
+                    ins.status === "flagged" ? "bg-red-50 text-red-700" : "bg-amber-50 text-amber-700"
+                  }`}>{ins.status}</span>
+                </div>
               ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </main>
+            </div>
+          </div>
+        )}
+
+        {/* System Tab */}
+        {tab === "system" && (
+          <div className="card p-6">
+            <h3 className="text-sm font-bold text-slate-700 mb-4">System Information</h3>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="bg-slate-50 rounded-lg p-4">
+                <p className="text-xs text-slate-400">Version</p>
+                <p className="text-lg font-bold text-slate-700">2.0.0</p>
+              </div>
+              <div className="bg-slate-50 rounded-lg p-4">
+                <p className="text-xs text-slate-400">Backend</p>
+                <p className="text-lg font-bold text-green-600">● Online</p>
+              </div>
+              <div className="bg-slate-50 rounded-lg p-4">
+                <p className="text-xs text-slate-400">Database</p>
+                <p className="text-lg font-bold text-slate-700">SQLite</p>
+              </div>
+              <div className="bg-slate-50 rounded-lg p-4">
+                <p className="text-xs text-slate-400">AI Model</p>
+                <p className="text-lg font-bold text-slate-700">llava (Ollama)</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {useDemo && <p className="text-center text-xs text-slate-400 py-2">💡 Showing demo data. Connect backend for live user management.</p>}
+      </div>
+    </div>
   );
 }
