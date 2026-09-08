@@ -1,184 +1,195 @@
 "use client";
-
-import { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
-import TopNav from "../components/TopNav";
-import { DEMO_STATS, DEMO_INSPECTIONS } from "../lib/demoData";
-import { getDashboardStats, getRecentAudits } from "../lib/api";
-import { Line, Doughnut, Bar } from "react-chartjs-2";
-import {
-  Chart as ChartJS, CategoryScale, LinearScale, BarElement, ArcElement,
-  LineElement, PointElement, Title, Tooltip, Legend, Filler,
-} from "chart.js";
 
-ChartJS.register(
-  CategoryScale, LinearScale, BarElement, ArcElement,
-  LineElement, PointElement, Title, Tooltip, Legend, Filler
-);
-
-export default function DashboardPage() {
-  const [stats, setStats] = useState(null);
-  const [recent, setRecent] = useState([]);
-  const [useDemo, setUseDemo] = useState(false);
-
-  useEffect(() => {
-    async function load() {
-      try {
-        const [s, r] = await Promise.all([getDashboardStats(), getRecentAudits()]);
-        if (s.total_audits > 0) {
-          setStats(s);
-          setRecent(r);
-        } else {
-          setUseDemo(true);
-        }
-      } catch {
-        setUseDemo(true);
-      }
-    }
-    load();
-  }, []);
-
-  const ds = useDemo ? DEMO_STATS : stats;
-  const recentList = useDemo ? DEMO_INSPECTIONS.slice(0, 8) : recent;
-
-  const kpis = ds ? [
-    { label: "Packages Scanned", value: useDemo ? ds.totalScanned : ds.total_audits, icon: "📋", color: "blue" },
-    { label: "Compliant", value: useDemo ? ds.compliant : ds.total_pass, icon: "✅", color: "green" },
-    { label: "Flagged", value: useDemo ? ds.flagged : ds.total_fail, icon: "🚩", color: "red" },
-    { label: "Pending Review", value: useDemo ? ds.pendingReview : (ds.total_audits - ds.total_pass - ds.total_fail), icon: "⏳", color: "amber" },
-    { label: "Compliance Rate", value: useDemo ? `${ds.complianceRate}%` : `${ds.pass_rate}%`, icon: "📈", color: "blue" },
-  ] : [];
-
-  const trendData = useDemo ? ds?.trendData : ds?.audits_last_7_days?.map(d => ({ date: d.date, inspections: d.count, compliance: 75 }));
-  const violData = useDemo ? ds?.violationsByType : ds?.violations_by_rule;
-
+export default function Dashboard() {
   return (
-    <div className="page-enter">
-      <TopNav title="Dashboard" subtitle="Compliance Command Center" />
-      <div className="p-6 space-y-6">
-        {/* Hero CTA */}
-        <div className="card p-6 bg-gradient-to-r from-navy to-slate-800 text-white relative overflow-hidden">
-          <div className="absolute right-0 top-0 opacity-10 text-[12rem] leading-none">⚖</div>
-          <div className="relative z-10">
-            <p className="text-blue-300 text-xs uppercase tracking-widest mb-1">SIH 2026 · PS-034 · Ministry of Consumer Affairs</p>
-            <h2 className="text-2xl font-bold mb-1">Inspect a Package</h2>
-            <p className="text-slate-300 text-sm mb-5">Upload a package image to extract declarations and perform a compliance check.</p>
-            <div className="flex flex-wrap gap-3">
-              <Link href="/scan" className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-2.5 rounded-lg transition-colors flex items-center gap-2 shadow">
-                <span>📷</span> Start Inspection
-              </Link>
-              <Link href="/violations" className="bg-white/10 hover:bg-white/20 text-white font-semibold px-5 py-2.5 rounded-lg transition-colors">
-                View Violations
-              </Link>
-              <Link href="/reports" className="bg-white/10 hover:bg-white/20 text-white font-semibold px-5 py-2.5 rounded-lg transition-colors">
-                Generate Report
-              </Link>
-            </div>
-            <div className="flex items-center gap-8 mt-5 text-xs text-slate-400">
-              <span>SCAN</span><span>→</span><span>EXTRACT</span><span>→</span><span>CHECK</span><span>→</span><span>REVIEW</span><span>→</span><span>REPORT</span>
-            </div>
-          </div>
-        </div>
-
-        {/* KPI Cards */}
-        {ds && (
-          <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-            {kpis.map((k, i) => (
-              <div key={i} className="kpi-card">
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-2xl">{k.icon}</span>
-                  <span className={`w-2 h-2 rounded-full bg-${k.color}-500`}></span>
-                </div>
-                <p className="text-2xl font-bold text-slate-800">{k.value}</p>
-                <p className="text-xs text-slate-500 mt-1">{k.label}</p>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Charts Row */}
-        {trendData && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Trend */}
-            <div className="card p-5 lg:col-span-2">
-              <h3 className="text-sm font-semibold text-slate-700 mb-4">Compliance Trend — Last 7 Days</h3>
-              <Line
-                data={{
-                  labels: trendData.map(d => d.date),
-                  datasets: [
-                    { label: "Inspections", data: trendData.map(d => d.inspections), borderColor: "#3b82f6", backgroundColor: "rgba(59,130,246,0.08)", tension: 0.4, fill: true, pointBackgroundColor: "#3b82f6" },
-                    { label: "Compliance %", data: trendData.map(d => d.compliance), borderColor: "#22c55e", backgroundColor: "transparent", tension: 0.4, borderDash: [5, 5], pointBackgroundColor: "#22c55e", yAxisID: "y1" },
-                  ],
-                }}
-                options={{ responsive: true, interaction: { mode: "index", intersect: false }, plugins: { legend: { position: "bottom", labels: { boxWidth: 12, usePointStyle: true } } }, scales: { y: { beginAtZero: true, title: { display: true, text: "Count" } }, y1: { position: "right", min: 0, max: 100, title: { display: true, text: "%" }, grid: { drawOnChartArea: false } } } }}
-              />
-            </div>
-            {/* Violations donut */}
-            <div className="card p-5">
-              <h3 className="text-sm font-semibold text-slate-700 mb-4">Violations by Category</h3>
-              <Doughnut
-                data={{
-                  labels: Object.keys(violData || {}),
-                  datasets: [{ data: Object.values(violData || {}), backgroundColor: ["#ef4444", "#f59e0b", "#3b82f6", "#8b5cf6", "#06b6d4", "#22c55e", "#f97316"] }],
-                }}
-                options={{ responsive: true, plugins: { legend: { position: "bottom", labels: { boxWidth: 10, font: { size: 10 } } } } }}
-              />
-            </div>
-          </div>
-        )}
-
-        {/* Recent Inspections */}
-        <div className="card overflow-hidden">
-          <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-slate-700">Recent Inspections</h3>
-            <Link href="/inspections" className="text-xs text-blue-600 font-semibold hover:underline">View all →</Link>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-slate-50">
-                <tr>
-                  <th className="table-header">ID</th>
-                  <th className="table-header">Product</th>
-                  <th className="table-header">Manufacturer</th>
-                  <th className="table-header">Date</th>
-                  <th className="table-header">Status</th>
-                  <th className="table-header">Issues</th>
-                  <th className="table-header">Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {recentList.map((r, i) => (
-                  <tr key={i} className="border-t border-slate-100 hover:bg-slate-50/50">
-                    <td className="table-cell font-mono text-xs text-slate-500">{r.id}</td>
-                    <td className="table-cell font-medium text-slate-800">{r.product || r.product_url?.split("/").pop() || "Product"}</td>
-                    <td className="table-cell text-slate-600">{r.manufacturer || "—"}</td>
-                    <td className="table-cell text-slate-500">{r.date || (r.created_at ? new Date(r.created_at).toLocaleDateString() : "—")}</td>
-                    <td className="table-cell">
-                      <StatusBadge status={r.status} />
-                    </td>
-                    <td className="table-cell">{r.issues ?? r.violation_count ?? 0}</td>
-                    <td className="table-cell">
-                      <Link href={r.id?.startsWith?.("LL") ? `/inspections` : `/inspector/${r.id}`} className="text-blue-600 text-xs font-semibold hover:underline">View →</Link>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        {useDemo && (
-          <p className="text-center text-xs text-slate-400 py-2">💡 Showing demo data. Run real audits from the Scan Package page to populate live data.</p>
-        )}
+    <div className="w-full h-full max-w-[1400px] mx-auto space-y-6">
+      
+      {/* Title */}
+      <div>
+        <h1 className="text-[26px] font-black text-[#11213d] tracking-tight">Dashboard</h1>
+        <p className="text-xs text-slate-500 font-medium mt-0.5">Compliance Command Center</p>
       </div>
+
+      {/* Hero Banner */}
+      <div className="bg-gradient-to-r from-[#1e3a8a] via-[#2563eb] to-[#3b82f6] rounded-3xl p-10 text-white flex justify-between items-center shadow-xl relative overflow-hidden">
+        {/* Abstract Backgrounds */}
+        <div className="absolute inset-0 opacity-10 bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-white via-transparent to-transparent"></div>
+        <div className="absolute right-0 bottom-0 w-[400px] h-[400px] bg-white opacity-5 rounded-full blur-3xl transform translate-x-1/2 translate-y-1/2"></div>
+        
+        <div className="relative z-10 max-w-xl">
+          <div className="flex items-center gap-3 mb-4">
+             <span className="text-[10px] font-bold tracking-widest text-blue-200 uppercase">SIH 2026</span>
+             <span className="w-1 h-1 bg-blue-300 rounded-full"></span>
+             <span className="text-[10px] font-bold tracking-widest text-blue-200 uppercase">PS-034</span>
+             <span className="w-1 h-1 bg-blue-300 rounded-full"></span>
+             <span className="text-[10px] font-bold tracking-widest text-blue-200 uppercase">Ministry of Consumer Affairs</span>
+          </div>
+          <h2 className="text-5xl font-black mb-4 tracking-tight">Inspect a Package</h2>
+          <p className="text-blue-100 text-sm mb-8 max-w-md leading-relaxed font-medium">Upload a package image to extract declarations and perform a compliance check.</p>
+          
+          <div className="flex items-center gap-4 mb-10">
+            <Link href="/scan" className="bg-[#2563eb] hover:bg-[#1d4ed8] text-white font-bold py-3.5 px-6 rounded-xl shadow-lg shadow-blue-900/40 flex items-center gap-3 transition-all border border-blue-400/30">
+              <span className="text-xl">📷</span> Start Inspection →
+            </Link>
+            <Link href="/violations" className="bg-white/10 hover:bg-white/20 border border-white/20 text-white font-semibold py-3.5 px-6 rounded-xl flex items-center gap-3 transition-all backdrop-blur-md">
+              <span className="text-xl">🛡️</span> View Violations
+            </Link>
+            <Link href="/reports" className="bg-white/10 hover:bg-white/20 border border-white/20 text-white font-semibold py-3.5 px-6 rounded-xl flex items-center gap-3 transition-all backdrop-blur-md">
+              <span className="text-xl">📄</span> Generate Report
+            </Link>
+          </div>
+
+          <div className="flex items-center gap-4 text-[10px] font-bold text-blue-200 uppercase tracking-widest">
+            <span className="flex items-center gap-1.5"><span className="text-sm">📷</span> SCAN <span className="opacity-50 ml-1">→</span></span>
+            <span className="flex items-center gap-1.5"><span className="text-sm">🧠</span> EXTRACT <span className="opacity-50 ml-1">→</span></span>
+            <span className="flex items-center gap-1.5 text-white bg-white/10 px-2 py-1 rounded-md border border-white/20"><span className="text-sm text-green-400">✓</span> CHECK <span className="opacity-50 ml-1">→</span></span>
+            <span className="flex items-center gap-1.5"><span className="text-sm">📄</span> REVIEW <span className="opacity-50 ml-1">→</span></span>
+            <span className="flex items-center gap-1.5"><span className="text-sm">📊</span> REPORT</span>
+          </div>
+        </div>
+
+        {/* Robot Agent Card Graphic */}
+        <div className="relative z-10 bg-white/10 backdrop-blur-xl border border-white/30 rounded-3xl p-6 flex items-center gap-6 w-[420px] shadow-[0_20px_50px_rgba(0,0,0,0.3)] mr-6 transform -rotate-1 hover:rotate-0 transition-transform duration-500">
+          {/* Glowing orb behind robot */}
+          <div className="absolute -left-6 -top-6 w-32 h-32 bg-blue-400 rounded-full mix-blend-screen filter blur-2xl opacity-50"></div>
+          
+          <div className="w-24 h-24 bg-gradient-to-br from-[#3b82f6] to-[#1d4ed8] rounded-2xl flex items-center justify-center text-5xl shadow-inner border-2 border-white/50 relative z-10 flex-shrink-0">
+            🤖
+          </div>
+          <div className="relative z-10">
+            <div className="bg-blue-500/80 text-white text-[9px] font-black px-2.5 py-1 rounded-lg inline-block mb-2 backdrop-blur border border-blue-400/50 uppercase tracking-wider">AI AGENT</div>
+            <h3 className="text-white font-black text-xl leading-tight mb-2">Hi! I'm your<br/>Compliance Assistant</h3>
+            <p className="text-[11px] text-blue-100 mb-4 font-medium leading-relaxed">I can help you scan, detect violations, and guide you with legal metrology rules.</p>
+            <div className="flex items-center gap-2 text-[10px] text-green-300 font-bold bg-green-900/40 px-3 py-1.5 rounded-full w-max border border-green-400/30">
+              <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse"></span> Ready to Assist
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* KPI Cards */}
+      <div className="grid grid-cols-5 gap-5">
+         {[
+           { title: "Packages Scanned", value: "128", change: "+12%", icon: "📦", color: "text-amber-600", bg: "bg-amber-50 border-amber-100", up: true },
+           { title: "Compliant", value: "94", change: "+18%", icon: "✓", color: "text-green-600", bg: "bg-green-50 border-green-100", up: true },
+           { title: "Flagged", value: "24", change: "-6%", icon: "⚠️", color: "text-red-600", bg: "bg-red-50 border-red-100", up: false },
+           { title: "Pending Review", value: "10", change: "-20%", icon: "⏳", color: "text-purple-600", bg: "bg-purple-50 border-purple-100", up: false },
+           { title: "Compliance Rate", value: "73.4%", change: "+9%", icon: "🛡️", color: "text-blue-600", bg: "bg-blue-50 border-blue-100", up: true },
+         ].map((kpi, i) => (
+           <div key={i} className="bg-white rounded-3xl p-5 border border-slate-200 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow">
+             <div className={`w-12 h-12 rounded-2xl ${kpi.bg} ${kpi.color} border flex items-center justify-center text-2xl mb-5 shadow-sm`}>
+               {kpi.icon}
+             </div>
+             <div>
+               <div className="flex items-end justify-between mb-1.5">
+                 <h3 className="text-3xl font-black text-[#11213d]">{kpi.value}</h3>
+                 <span className={`text-[11px] font-black ${kpi.up ? 'text-green-500 bg-green-50' : 'text-red-500 bg-red-50'} px-2 py-1 rounded-lg flex items-center gap-0.5`}>
+                   {kpi.up ? '↑' : '↓'} {kpi.change}
+                 </span>
+               </div>
+               <div className="flex items-center justify-between">
+                 <p className="text-xs text-slate-500 font-bold">{kpi.title}</p>
+                 <p className="text-[9px] font-medium text-slate-400">vs. last 7 days</p>
+               </div>
+             </div>
+           </div>
+         ))}
+      </div>
+
+      {/* Charts */}
+      <div className="grid grid-cols-3 gap-6">
+        <div className="col-span-2 bg-white rounded-3xl p-6 border border-slate-200 shadow-sm flex flex-col">
+          <div className="flex items-center justify-between mb-6">
+             <h3 className="font-bold text-[#11213d] flex items-center gap-2 text-sm"><span className="text-blue-600 text-lg">📈</span> Compliance Trend — Last 7 Days</h3>
+             <select className="text-xs font-semibold bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-600 outline-none hover:bg-slate-100 cursor-pointer">
+               <option>📅 Last 7 Days</option>
+             </select>
+          </div>
+          {/* Chart Graphic Simulation */}
+          <div className="flex-1 w-full flex items-end gap-2 relative min-h-[220px]">
+             <div className="absolute inset-0 flex flex-col justify-between opacity-5 pointer-events-none pb-6">
+                {[1,2,3,4,5,6].map(x=><div key={x} className="border-t-2 border-dashed border-slate-800 w-full"></div>)}
+             </div>
+             
+             {/* Simple visual representation of line chart for aesthetics */}
+             <div className="absolute top-4 right-4 flex items-center gap-4 text-[9px] font-bold text-slate-500">
+                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-blue-500"></span> Scanned</span>
+                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-green-500"></span> Compliant</span>
+                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500"></span> Flagged</span>
+             </div>
+             
+             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                 <svg className="w-full h-full" viewBox="0 0 100 50" preserveAspectRatio="none">
+                    <polyline points="0,40 20,35 40,30 60,25 80,10 100,15" fill="none" stroke="#3b82f6" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round"/>
+                    <polyline points="0,45 20,40 40,38 60,32 80,15 100,20" fill="none" stroke="#22c55e" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" strokeDasharray="1,1"/>
+                    <polyline points="0,48 20,47 40,48 60,45 80,42 100,44" fill="none" stroke="#ef4444" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" strokeDasharray="1,1"/>
+                 </svg>
+             </div>
+             
+             {/* X axis labels */}
+             <div className="absolute bottom-0 left-0 w-full flex justify-between text-[8px] font-bold text-slate-400 px-2">
+                <span>May 6</span><span>May 7</span><span>May 8</span><span>May 9</span><span>May 10</span><span>May 11</span><span>May 12</span>
+             </div>
+          </div>
+        </div>
+        
+        <div className="col-span-1 bg-white rounded-3xl p-6 border border-slate-200 shadow-sm flex flex-col">
+          <div className="flex items-center justify-between mb-6">
+             <h3 className="font-bold text-[#11213d] flex items-center gap-2 text-sm"><span className="text-purple-600 text-lg">⚠️</span> Violations by Category</h3>
+             <select className="text-xs font-semibold bg-slate-50 border border-slate-200 rounded-lg px-2 py-2 text-slate-600 outline-none hover:bg-slate-100 cursor-pointer">
+               <option>All Categories</option>
+             </select>
+          </div>
+          {/* Donut Chart Simulation */}
+          <div className="flex-1 w-full flex flex-col items-center justify-center relative pt-2">
+             <div className="w-36 h-36 rounded-full border-[14px] border-[#3b82f6] border-r-[#8b5cf6] border-b-[#f59e0b] border-l-[#ef4444] flex items-center justify-center shadow-inner">
+                <div className="text-center">
+                  <p className="text-2xl font-black text-[#11213d]">24</p>
+                  <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Total Violations</p>
+                </div>
+             </div>
+             <div className="w-full mt-8 space-y-3">
+               {[
+                 { label: "Labeling Defect", count: 9, pct: "37.5%", color: "bg-[#ef4444]" },
+                 { label: "Net Quantity", count: 5, pct: "20.8%", color: "bg-[#f59e0b]" },
+                 { label: "MRP Mismatch", count: 4, pct: "16.7%", color: "bg-[#3b82f6]" },
+                 { label: "Packaged Commodity", count: 3, pct: "12.5%", color: "bg-[#8b5cf6]" },
+                 { label: "Other", count: 3, pct: "12.5%", color: "bg-[#10b981]" }
+               ].map((item, i) => (
+                 <div key={i} className="flex items-center justify-between text-xs font-semibold">
+                   <div className="flex items-center gap-3">
+                     <span className={`w-2.5 h-2.5 rounded-full ${item.color}`}></span>
+                     <span className="text-slate-600">{item.label}</span>
+                   </div>
+                   <div className="text-right flex items-center gap-2">
+                     <span className="font-black text-slate-800">{item.count}</span>
+                     <span className="text-[9px] text-slate-400 w-10 text-right">({item.pct})</span>
+                   </div>
+                 </div>
+               ))}
+             </div>
+          </div>
+        </div>
+      </div>
+      
+      {/* Bottom footer wave decoration */}
+      <div className="pt-6 pb-2 flex flex-col items-center justify-center relative">
+         <div className="flex items-center gap-6 text-[9px] text-slate-400 font-bold uppercase tracking-widest mb-3 relative z-10">
+            <span>Safe Consumers</span>
+            <span className="w-px h-3 bg-slate-300"></span>
+            <span>Fair Trade</span>
+            <span className="w-px h-3 bg-slate-300"></span>
+            <span>Stronger India</span>
+         </div>
+         <div className="flex w-64 h-1 rounded-full overflow-hidden opacity-30 shadow-sm relative z-10">
+            <div className="flex-1 bg-orange-500"></div>
+            <div className="flex-1 bg-white"></div>
+            <div className="flex-1 bg-green-500"></div>
+         </div>
+      </div>
+
     </div>
   );
-}
-
-function StatusBadge({ status }) {
-  const s = (status || "").toLowerCase();
-  if (s === "compliant" || s === "pass" || s === "pass_") return <span className="status-pass">✓ Compliant</span>;
-  if (s === "flagged" || s === "fail") return <span className="status-fail">🚩 Non-Compliant</span>;
-  if (s === "review" || s === "pending") return <span className="status-review">⚠ Needs Review</span>;
-  return <span className="status-pending">{status || "—"}</span>;
 }
