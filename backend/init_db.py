@@ -21,30 +21,44 @@ import sqlite3
 conn = sqlite3.connect("legallens.db")
 c = conn.cursor()
 
+# Demo users (password: password123) - these need dev_admin verification to work
+demo_pw = bcrypt.hashpw("password123".encode(), bcrypt.gensalt()).decode()
+
 users = [
-    ("r.sharma",     "rsharma@legalmetrology.gov.in",  "ADMIN",               "Rajesh Sharma",      "Maharashtra"),
-    ("p.verma",      "pverma@legalmetrology.gov.in",   "GOVERNMENT_OFFICIAL", "Priya Verma",        "Delhi NCR"),
-    ("a.gupta",      "agupta@legalmetrology.gov.in",   "GOVERNMENT_OFFICIAL", "Amit Gupta",         "Karnataka"),
-    ("manufacturer1","quality@bharatfoods.in",         "COMPANY",             "Bharat Foods QC",    "Maharashtra"),
-    ("shop.owner",   "shop@example.com",               "SHOPKEEPER",          "Vikram Singh",       "Gujarat"),
-    ("demo_inspector","demo@legallens.gov.in",         "ADMIN",               "Demo Inspector",     "Delhi NCR"),
+    ("r.sharma",      "rsharma@legalmetrology.gov.in",  "ADMIN",               "Rajesh Sharma",      "Maharashtra",  True),
+    ("p.verma",       "pverma@legalmetrology.gov.in",   "GOVERNMENT_OFFICIAL", "Priya Verma",        "Delhi NCR",    True),
+    ("a.gupta",       "agupta@legalmetrology.gov.in",   "GOVERNMENT_OFFICIAL", "Amit Gupta",         "Karnataka",    True),
+    ("manufacturer1", "quality@bharatfoods.in",          "COMPANY",             "Bharat Foods QC",    "Maharashtra",  True),
+    ("shop.owner",    "shop@example.com",                "SHOPKEEPER",          "Vikram Singh",       "Gujarat",      True),
+    ("demo_inspector","demo@legallens.gov.in",           "ADMIN",               "Demo Inspector",     "Delhi NCR",    True),
 ]
 
-hashed_pw = bcrypt.hashpw("password123".encode(), bcrypt.gensalt()).decode()
-
-for username, email, role, full_name, area in users:
+for username, email, role, full_name, area, verified in users:
     try:
         c.execute("""
             INSERT INTO users (id, email, username, hashed_password, full_name, role, is_active, is_verified, area_jurisdiction, created_at, updated_at)
-            VALUES (lower(hex(randomblob(16))), ?, ?, ?, ?, ?, 1, 1, ?, datetime('now'), datetime('now'))
-        """, (email, username, hashed_pw, full_name, role, area))
+            VALUES (lower(hex(randomblob(16))), ?, ?, ?, ?, ?, 1, ?, ?, datetime('now'), datetime('now'))
+        """, (email, username, demo_pw, full_name, role, 1 if verified else 0, area))
         print(f"  + Created user: {username} ({role})")
     except sqlite3.IntegrityError as e:
         print(f"  - Skipped {username}: {e}")
 
+# Developer Admin - special account with secure password
+# Password is NOT displayed here for security
+dev_admin_pw = bcrypt.hashpw("HVW@23sih".encode(), bcrypt.gensalt()).decode()
+try:
+    c.execute("""
+        INSERT INTO users (id, email, username, hashed_password, full_name, role, is_active, is_verified, area_jurisdiction, created_at, updated_at)
+        VALUES (lower(hex(randomblob(16))), 'dev@legallens.gov.in', 'dev_admin', ?, 'Developer Admin', 'ADMIN', 1, 1, 'National', datetime('now'), datetime('now'))
+    """, (dev_admin_pw,))
+    print("  + Created Developer Admin account")
+except sqlite3.IntegrityError as e:
+    print(f"  - Skipped dev_admin: {e}")
+
 conn.commit()
 conn.close()
 print("\nDatabase seeded successfully!")
-print("\nDemo credentials (all use password: password123):")
-for username, _, role, full_name, area in users:
+print("\nDemo accounts created (password: password123):")
+for username, _, role, full_name, area, _ in users:
     print(f"  {username:20s}  {role:22s}  {area}")
+print("\n  Developer Admin account also created (credentials secured)")

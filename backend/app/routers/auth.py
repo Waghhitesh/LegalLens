@@ -65,6 +65,10 @@ def register(payload: RegisterRequest, db: Session = Depends(get_db)):
     if db.query(User).filter(User.username == payload.username).first():
         raise HTTPException(status_code=409, detail="Username already taken")
     is_email = _is_email(payload.otp_target)
+    
+    # Admins and officials need verification by dev_admin
+    auto_verify = payload.role == UserRole.CITIZEN
+    
     user = User(
         username=payload.username,
         hashed_password=hash_password(payload.password),
@@ -73,7 +77,7 @@ def register(payload: RegisterRequest, db: Session = Depends(get_db)):
         organisation=payload.organisation,
         email=payload.email or (payload.otp_target if is_email else None),
         mobile=payload.mobile or (payload.otp_target if not is_email else None),
-        is_verified=True,
+        is_verified=auto_verify,
     )
     db.add(user)
     db.commit()
@@ -88,6 +92,9 @@ def register_direct(payload: DirectRegisterRequest, db: Session = Depends(get_db
         raise HTTPException(status_code=409, detail="Username already taken")
     if payload.email and db.query(User).filter(User.email == payload.email).first():
         raise HTTPException(status_code=409, detail="Email already registered")
+        
+    auto_verify = payload.role == UserRole.CITIZEN
+        
     user = User(
         username=payload.username,
         hashed_password=hash_password(payload.password),
@@ -96,7 +103,7 @@ def register_direct(payload: DirectRegisterRequest, db: Session = Depends(get_db
         organisation=payload.organisation,
         email=payload.email,
         mobile=payload.mobile,
-        is_verified=True,
+        is_verified=auto_verify,
         area_jurisdiction=payload.area_jurisdiction,
     )
     db.add(user)
@@ -114,6 +121,9 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
         raise HTTPException(status_code=401, detail="Incorrect username or password")
     if not user.is_active:
         raise HTTPException(status_code=403, detail="Account is disabled. Contact administrator.")
+    if not user.is_verified:
+        raise HTTPException(status_code=403, detail="Account pending verification by Developer Admin.")
+        
     token = create_access_token({"sub": str(user.id), "role": user.role.value})
     return Token(access_token=token, role=user.role, username=user.username, full_name=user.full_name)
 
@@ -121,3 +131,19 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
 @router.get("/me", response_model=UserOut)
 def me(current_user: User = Depends(get_current_user)):
     return current_user
+
+
+@router.post("/verify-user/{username}")
+def verify_user_account(username: str, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Only developer admin can verify new admin/official registrations."""
+    if current_user.username != "dev_admin":
+        raise HTTPException(status_code=403, detail="Only Developer Admin can verify users")
+    
+    target = db.query(User).filter(User.username == username).first()
+    if not target:
+        raise HTTPException(status_code=404, detail="User not found")
+        
+    target.is_verified = True
+    db.commit()
+    return {"message": f"User {username} has been verified successfully."}
+
