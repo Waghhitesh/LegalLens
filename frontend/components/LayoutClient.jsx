@@ -13,11 +13,11 @@ export default function LayoutClient({ children }) {
   }
 
   return (
-    <div className="flex min-h-screen bg-slate-50 font-sans text-slate-800">
+    <div className="flex min-h-screen bg-[#f0f2f5] font-sans text-slate-800">
       <Sidebar />
-      <div className="flex-1 ml-64 flex flex-col min-h-screen relative z-10">
+      <div className="flex-1 ml-[220px] flex flex-col min-h-screen relative z-10">
         <TopNav />
-        <main className="flex-1 p-8 relative z-10 overflow-x-hidden">
+        <main className="flex-1 p-6 relative z-10 overflow-x-hidden">
           {children}
         </main>
       </div>
