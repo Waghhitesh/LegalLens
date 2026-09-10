@@ -1,7 +1,9 @@
 """
 Auth Service: password hashing, JWT tokens, current-user dependency.
+Uses raw bcrypt directly (passlib is incompatible with bcrypt 5.0 on Python 3.14).
 """
 import uuid
+import bcrypt
 from datetime import datetime, timedelta
 from typing import Optional
 
@@ -17,16 +19,15 @@ from app.models.user import User
 bearer = HTTPBearer(auto_error=False)
 
 
-from passlib.context import CryptContext
-
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
 def hash_password(password: str) -> str:
-    return pwd_context.hash(password)
+    """Hash a password using raw bcrypt (compatible with bcrypt 5.0)."""
+    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+
 
 def verify_password(plain: str, hashed: str) -> bool:
+    """Verify password using raw bcrypt."""
     try:
-        return pwd_context.verify(plain, hashed)
+        return bcrypt.checkpw(plain.encode("utf-8"), hashed.encode("utf-8"))
     except Exception:
         return False
 
