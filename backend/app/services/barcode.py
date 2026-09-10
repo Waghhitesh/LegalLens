@@ -1,12 +1,21 @@
-﻿import os
+import os
 import requests
-from pyzbar.pyzbar import decode
 from PIL import Image
 
+try:
+    from pyzbar.pyzbar import decode as pyzbar_decode
+    PYZBAR_OK = True
+except Exception:
+    PYZBAR_OK = False
+    pyzbar_decode = None
+
 def decode_barcode(image_path: str) -> str | None:
+    if not PYZBAR_OK:
+        print("Barcode decoding unavailable on Windows due to missing zbar.dll")
+        return None
     try:
         img = Image.open(image_path)
-        decoded = decode(img)
+        decoded = pyzbar_decode(img)
         if decoded:
             return decoded[0].data.decode("utf-8")
     except Exception as e:

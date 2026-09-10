@@ -13,6 +13,8 @@ from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
+from app.models.user import User
+from app.services.auth_service import get_current_user
 from app.core.config import settings
 from app.models.product import Product, SourceType
 from app.models.audit_log import AuditLog, AuditStatus
@@ -89,7 +91,7 @@ def _run_ai_and_reconcile(db: Session, product: Product, audit: AuditLog, image_
 
 
 @router.post("/url", response_model=AuditTaskAccepted, status_code=202)
-def audit_from_url(payload: ProductURLSubmit, db: Session = Depends(get_db)):
+def audit_from_url(payload: ProductURLSubmit, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     """Submit an e-commerce URL for compliance audit."""
     product = Product(url=str(payload.url), source_type=SourceType.URL_SCRAPE)
     db.add(product)
@@ -151,6 +153,7 @@ def audit_from_upload(
     product_name: str = Form(None),
     brand_name: str = Form(None),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """Upload physical package images for field-inspector audit."""
     if not images:
@@ -202,7 +205,7 @@ def audit_from_upload(
 
 
 @router.post("/bulk-upload", status_code=202)
-def audit_bulk_upload(images: list[UploadFile] = File(...), db: Session = Depends(get_db)):
+def audit_bulk_upload(images: list[UploadFile] = File(...), db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     """Bulk-scan multiple package images (warehouse/shelf inspection)."""
     accepted = []
     for upload in images:
@@ -241,6 +244,7 @@ def audit_from_barcode(
     location_lng: float = Form(None),
     location_address: str = Form(None),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """Scan barcode from image, lookup product, and run audit."""
     from app.services.barcode import decode_barcode, lookup_product_by_barcode
@@ -292,7 +296,7 @@ def audit_from_barcode(
     )
 
 @router.get("/{audit_id}", response_model=AuditLogOut)
-def get_audit(audit_id: uuid.UUID, db: Session = Depends(get_db)):
+def get_audit(audit_id: uuid.UUID, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     audit = db.query(AuditLog).filter(AuditLog.id == audit_id).first()
     if not audit:
         raise HTTPException(status_code=404, detail="Audit not found")
@@ -300,7 +304,7 @@ def get_audit(audit_id: uuid.UUID, db: Session = Depends(get_db)):
 
 
 @router.get("/{audit_id}/report")
-def get_audit_report(audit_id: uuid.UUID, db: Session = Depends(get_db)):
+def get_audit_report(audit_id: uuid.UUID, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     audit = db.query(AuditLog).filter(AuditLog.id == audit_id).first()
     if not audit:
         raise HTTPException(status_code=404, detail="Audit not found")

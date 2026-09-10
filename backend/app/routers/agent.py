@@ -7,6 +7,9 @@ from fastapi import APIRouter, HTTPException, UploadFile, File
 from pydantic import BaseModel
 from app.core.config import settings
 from app.services import ollama_agent
+from fastapi import Depends
+from app.models.user import User
+from app.services.auth_service import get_current_user
 
 router = APIRouter(prefix="/api/v1/agent", tags=["agent"])
 
@@ -22,7 +25,7 @@ class ChatRequest(BaseModel):
 
 
 @router.post("/chat")
-async def agent_chat(payload: ChatRequest):
+async def agent_chat(payload: ChatRequest, current_user: User = Depends(get_current_user)):
     try:
         reply = await ollama_agent.chat(
             payload.message, [m.model_dump() for m in payload.history]
@@ -33,7 +36,7 @@ async def agent_chat(payload: ChatRequest):
 
 
 @router.post("/analyze-image")
-async def analyze_image(image: UploadFile = File(...)):
+async def analyze_image(image: UploadFile = File(...), current_user: User = Depends(get_current_user)):
     os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
     ext = os.path.splitext(image.filename or "")[1] or ".jpg"
     path = os.path.join(settings.UPLOAD_DIR, f"agent_{uuid.uuid4()}{ext}")
@@ -49,7 +52,7 @@ async def analyze_image(image: UploadFile = File(...)):
 
 
 @router.post("/analyze-bulk")
-async def analyze_bulk(images: list[UploadFile] = File(...)):
+async def analyze_bulk(images: list[UploadFile] = File(...), current_user: User = Depends(get_current_user)):
     os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
     results = []
     for image in images:

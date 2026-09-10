@@ -29,6 +29,14 @@ class AuditLog(Base):
     physical_country_of_origin = Column(String, nullable=True)
     physical_consumer_care = Column(String, nullable=True)
     detected_font_height_mm = Column(Float, nullable=True)
+    
+    mfg_date = Column(String, nullable=True)
+    batch_number = Column(String, nullable=True)
+    fssai_license = Column(String, nullable=True)
+    ingredients = Column(String, nullable=True)
+    nutritional_info = Column(String, nullable=True)
+    ocr_raw_text = Column(String, nullable=True)
+    expiry_date = Column(String, nullable=True)
 
     compliance_score = Column(Float, nullable=True)
     status = Column(Enum(AuditStatus), nullable=False, default=AuditStatus.PENDING)

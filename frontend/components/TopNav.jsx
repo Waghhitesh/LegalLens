@@ -1,24 +1,15 @@
 "use client";
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
 import NotificationBell from "./NotificationBell";
 
 export default function TopNav() {
-  const router = useRouter();
   const [username, setUsername] = useState("Guest");
 
   useEffect(() => {
     setUsername(localStorage.getItem("username") || "Guest");
   }, []);
   
-  const handleLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("role");
-    localStorage.removeItem("username");
-    localStorage.removeItem("full_name");
-    router.push("/login");
-  };
-  
+
   return (
     <header className="bg-white border-b border-[#D9E1EC] px-6 py-2.5 flex items-center justify-between sticky top-0 z-30 shadow-sm font-sans h-[72px]">
       <div className="flex items-center gap-5">

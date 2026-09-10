@@ -25,6 +25,13 @@ class AuditLogOut(BaseModel):
     physical_country_of_origin: Optional[str] = None
     physical_consumer_care: Optional[str] = None
     detected_font_height_mm: Optional[float] = None
+    mfg_date: Optional[str] = None
+    batch_number: Optional[str] = None
+    fssai_license: Optional[str] = None
+    ingredients: Optional[str] = None
+    nutritional_info: Optional[str] = None
+    ocr_raw_text: Optional[str] = None
+    expiry_date: Optional[str] = None
     compliance_score: Optional[float] = None
     status: AuditStatus
     created_at: datetime

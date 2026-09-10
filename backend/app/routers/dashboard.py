@@ -8,13 +8,16 @@ from sqlalchemy.orm import Session
 from app.db.database import get_db
 from app.models.audit_log import AuditLog, AuditStatus
 from app.models.violation import Violation, RuleType
+from app.models.user import User
 from app.schemas.audit import DashboardStats
 
 router = APIRouter(prefix="/api/v1/dashboard", tags=["dashboard"])
 
 
+from app.services.auth_service import get_current_user
+
 @router.get("/stats", response_model=DashboardStats)
-def get_dashboard_stats(db: Session = Depends(get_db)):
+def get_dashboard_stats(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     total_audits = db.query(func.count(AuditLog.id)).scalar() or 0
     total_pass = db.query(func.count(AuditLog.id)).filter(AuditLog.status == AuditStatus.PASS_).scalar() or 0
     total_fail = db.query(func.count(AuditLog.id)).filter(AuditLog.status == AuditStatus.FAIL).scalar() or 0
@@ -43,7 +46,7 @@ def get_dashboard_stats(db: Session = Depends(get_db)):
 
 
 @router.get("/recent-audits")
-def get_recent_audits(limit: int = 10, db: Session = Depends(get_db)):
+def get_recent_audits(limit: int = 10, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     audits = db.query(AuditLog).order_by(AuditLog.created_at.desc()).limit(limit).all()
     return [
         {
