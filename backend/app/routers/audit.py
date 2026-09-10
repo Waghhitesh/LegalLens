@@ -40,6 +40,16 @@ def _run_ai_and_reconcile(db: Session, product: Product, audit: AuditLog, image_
             field_bounding_boxes = extracted.get("field_bounding_boxes", {})
             font_height = ai_pipeline.calculate_font_height(cropped_paths[0]) if cropped_paths else None
 
+            if not audit.product_name and extracted.get("product_name"):
+                audit.product_name = extracted["product_name"]
+            if not audit.brand_name and extracted.get("brand_name"):
+                audit.brand_name = extracted["brand_name"]
+            
+            # Additional fields from new AI pipeline
+            for field in ['mfg_date', 'batch_number', 'fssai_license', 'ingredients', 'nutritional_info', 'ocr_raw_text', 'expiry_date']:
+                if extracted.get(field):
+                    setattr(audit, field, extracted[field])
+
             physical_data = {
                 "physical_mrp": extracted.get("mrp"),
                 "physical_net_weight": extracted.get("net_weight"),
@@ -305,7 +315,11 @@ def get_audit_report(audit_id: uuid.UUID, db: Session = Depends(get_db)):
         "Net Weight": getattr(audit, "physical_net_weight", None),
         "Manufacturer": getattr(audit, "physical_manufacturer", None),
         "Country of Origin": getattr(audit, "physical_country_of_origin", None),
-        "Consumer Care": getattr(audit, "physical_consumer_care", None)
+        "Consumer Care": getattr(audit, "physical_consumer_care", None),
+        "FSSAI License": getattr(audit, "fssai_license", None) if hasattr(audit, 'fssai_license') else None,
+        "Batch Number": getattr(audit, "batch_number", None) if hasattr(audit, 'batch_number') else None,
+        "Mfg Date": getattr(audit, "mfg_date", None) if hasattr(audit, 'mfg_date') else None,
+        "Expiry Date": getattr(audit, "expiry_date", None) if hasattr(audit, 'expiry_date') else None,
     }
     pdf_path = generate_legal_notice_pdf(
         audit_id=str(audit.id), product_url=product_url,

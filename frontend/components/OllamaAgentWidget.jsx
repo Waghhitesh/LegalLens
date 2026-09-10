@@ -1,5 +1,6 @@
 "use client";
 import { useState, useRef, useEffect } from 'react';
+import { getApiUrl } from "../lib/config";
 
 export default function OllamaAgentWidget() {
   const [isOpen, setIsOpen] = useState(false);
@@ -28,7 +29,7 @@ export default function OllamaAgentWidget() {
     setIsTyping(true);
 
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+      const apiUrl = getApiUrl();
       const res = await fetch(`${apiUrl}/api/v1/agent/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

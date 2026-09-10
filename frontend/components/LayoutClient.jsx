@@ -6,7 +6,7 @@ import OllamaAgentWidget from "./OllamaAgentWidget";
 
 export default function LayoutClient({ children }) {
   const pathname = usePathname();
-  const isAuthPage = pathname === "/login" || pathname === "/register";
+  const isAuthPage = pathname === "/" || pathname === "/login" || pathname === "/register";
 
   if (isAuthPage) {
     return <>{children}</>;

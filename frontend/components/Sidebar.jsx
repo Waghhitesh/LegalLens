@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 
 const MENU = [
-  { name: "Dashboard", href: "/", icon: "🏠" },
+  { name: "Dashboard", href: "/dashboard", icon: "🏠" },
   { name: "Scan Package", href: "/scan", icon: "📷", badge: "NEW" },
   { name: "Inspections", href: "/inspections", icon: "🔍" },
   { name: "Violations", href: "/violations", icon: "⚠️" },

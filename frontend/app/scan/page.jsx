@@ -1,5 +1,6 @@
 "use client";
 import { useState, useRef } from "react";
+import { getApiUrl } from "../../lib/config";
 
 const STEPS = [
   { id: 1, label: "Uploading Image", icon: "📤" },
@@ -31,7 +32,7 @@ export default function ScanPage() {
   const fileRef = useRef(null);
   const bulkFileRef = useRef(null);
 
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+  const API_URL = getApiUrl();
 
   function handleFileSelect(selectedFiles) {
     if (!selectedFiles || selectedFiles.length === 0) return;

@@ -196,6 +196,39 @@ def generate_legal_notice_pdf(
     ]))
     story.append(check_table)
 
+    # === CONSUMER HELPLINE SECTION ===
+    story.append(Spacer(1, 4*mm))
+    story.append(Paragraph("<b>CONSUMER HELPLINE &amp; GRIEVANCE REDRESSAL</b>", sub_style))
+    story.append(HRFlowable(width="100%", thickness=0.5, color=colors.HexColor("#cbd5e1"), spaceAfter=4))
+
+    helpline_data = []
+    # Product consumer care (from extracted data)
+    consumer_care = None
+    if extracted_declarations:
+        consumer_care = extracted_declarations.get("Consumer Care")
+    if consumer_care:
+        helpline_data.append([Paragraph("<b>Product Consumer Care</b>", body_style), Paragraph(str(consumer_care), body_style)])
+    else:
+        helpline_data.append([Paragraph("<b>Product Consumer Care</b>", body_style), Paragraph("Not found on label", body_style)])
+
+    # Official helplines
+    helpline_data.append([Paragraph("<b>National Consumer Helpline</b>", body_style), Paragraph("1800-11-4000 (Toll Free) / 1915", body_style)])
+    helpline_data.append([Paragraph("<b>Consumer Helpline Website</b>", body_style), Paragraph("https://consumerhelpline.gov.in", body_style)])
+    helpline_data.append([Paragraph("<b>Consumer Court (e-Daakhil)</b>", body_style), Paragraph("https://edaakhil.nic.in", body_style)])
+    helpline_data.append([Paragraph("<b>Legal Metrology Dept</b>", body_style), Paragraph("Department of Consumer Affairs, GoI", body_style)])
+    helpline_data.append([Paragraph("<b>INGRAM Portal</b>", body_style), Paragraph("https://consumerhelpline.gov.in/ingram", body_style)])
+
+    helpline_table = Table(helpline_data, colWidths=[60*mm, 110*mm])
+    helpline_table.setStyle(TableStyle([
+        ("FONTSIZE", (0,0), (-1,-1), 9),
+        ("VALIGN", (0,0), (-1,-1), "TOP"),
+        ("GRID", (0,0), (-1,-1), 0.3, colors.HexColor("#cbd5e1")),
+        ("BACKGROUND", (0,0), (0,-1), colors.HexColor("#f0f9ff")),
+        ("TOPPADDING", (0,0), (-1,-1), 3),
+        ("BOTTOMPADDING", (0,0), (-1,-1), 3),
+    ]))
+    story.append(helpline_table)
+
     story.append(Spacer(1, 8*mm))
     story.append(HRFlowable(width="100%", thickness=1, color=GOLD, spaceAfter=4))
     story.append(Paragraph(

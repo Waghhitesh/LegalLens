@@ -1,6 +1,7 @@
 // D:\sih-legal-metrology\frontend\lib\api.js
+import { getApiUrl } from "./config";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API_BASE = getApiUrl();
 
 function getHeaders(isFormData = false) {
   const token = typeof window !== 'undefined' ? localStorage.getItem("token") : null;

@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
+import { getApiUrl } from "../lib/config";
 
 export default function NotificationBell() {
   const [open, setOpen] = useState(false);
@@ -12,7 +13,7 @@ export default function NotificationBell() {
     if (!token) return;
     async function fetchNotifs() {
       try {
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+        const apiUrl = getApiUrl();
         const res = await fetch(`${apiUrl}/api/v1/notifications`, {
           headers: { "Authorization": `Bearer ${token}` }
         });

@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { getApiUrl } from "../../lib/config";
 
 const ROLES = [
   { value: "CITIZEN", label: "Citizen", icon: "👤" },
@@ -22,7 +23,7 @@ export default function RegisterPage() {
     e.preventDefault();
     setLoading(true); setError(null);
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/v1/auth/otp/request`, {
+      const res = await fetch(`${getApiUrl()}/api/v1/auth/otp/request`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ target, purpose: "register" }),
@@ -37,7 +38,7 @@ export default function RegisterPage() {
     e.preventDefault();
     setLoading(true); setError(null);
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/v1/auth/register`, {
+      const res = await fetch(`${getApiUrl()}/api/v1/auth/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...form, otp_target: target }),
@@ -48,7 +49,7 @@ export default function RegisterPage() {
     } catch (err) {
       // Fallback: try direct register
       try {
-        const res2 = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/v1/auth/register-direct`, {
+        const res2 = await fetch(`${getApiUrl()}/api/v1/auth/register-direct`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ username: form.username, password: form.password, role: form.role, full_name: form.full_name, organisation: form.organisation, email: target, area_jurisdiction: form.area_jurisdiction }),

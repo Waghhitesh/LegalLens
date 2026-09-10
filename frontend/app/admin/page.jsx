@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { getApiUrl } from "../../lib/config";
 import { fetchUsers, updateUser, deleteUser, exportUsersUrl } from "../../lib/api";
 import { getRole } from "../../lib/auth";
 import { DEMO_INSPECTIONS } from "../../lib/demoData";
@@ -33,7 +34,7 @@ export default function AdminPage() {
   async function handleVerify(username) {
     if (useDemo) { alert("Demo mode: Verify action ignored."); return; }
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/v1/auth/verify-user/${username}`, { method: 'POST' });
+      const res = await fetch(`${getApiUrl()}/api/v1/auth/verify-user/${username}`, { method: 'POST' });
       if(res.ok) alert("User verified successfully");
     } catch(e) { console.error(e); }
   }
