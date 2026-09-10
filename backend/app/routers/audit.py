@@ -27,18 +27,18 @@ router = APIRouter(prefix="/api/v1/audit", tags=["audit"])
 os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
 
 
-def _run_ai_and_reconcile(db: Session, product: Product, audit: AuditLog, image_path: str | None):
+def _run_ai_and_reconcile(db: Session, product: Product, audit: AuditLog, image_paths: list[str] | None):
     """AI pipeline -> reconciliation -> persist violations + score."""
     physical_data = {}
     field_bounding_boxes = {}
     font_height = None
 
-    if image_path and os.path.exists(image_path):
+    if image_paths and all(os.path.exists(p) for p in image_paths if p):
         try:
-            cropped = ai_pipeline.crop_pdp(image_path)
-            extracted = ai_pipeline.extract_label_data(cropped)
+            cropped_paths = [ai_pipeline.crop_pdp(p) for p in image_paths if p]
+            extracted = ai_pipeline.extract_label_data(cropped_paths)
             field_bounding_boxes = extracted.get("field_bounding_boxes", {})
-            font_height = ai_pipeline.calculate_font_height(cropped)
+            font_height = ai_pipeline.calculate_font_height(cropped_paths[0]) if cropped_paths else None
 
             physical_data = {
                 "physical_mrp": extracted.get("mrp"),
@@ -118,7 +118,7 @@ def audit_from_url(payload: ProductURLSubmit, db: Session = Depends(get_db)):
                 logger.warning(f"Image download failed: {e}")
                 image_path = None
         db.commit()
-        _run_ai_and_reconcile(db, product, audit, image_path)
+        _run_ai_and_reconcile(db, product, audit, [image_path] if image_path else None)
     except Exception as e:
         logger.error(f"URL audit failed: {e}", exc_info=True)
         audit.status = AuditStatus.ERROR
@@ -134,8 +134,7 @@ def audit_from_url(payload: ProductURLSubmit, db: Session = Depends(get_db)):
 @router.post("/upload", response_model=AuditTaskAccepted, status_code=202)
 def audit_from_upload(
     barcode: str = Form(None),
-    file: UploadFile = File(None),
-    image: UploadFile = File(None),
+    images: list[UploadFile] = File(...),
     location_lat: float = Form(None),
     location_lng: float = Form(None),
     location_address: str = Form(None),
@@ -143,21 +142,25 @@ def audit_from_upload(
     brand_name: str = Form(None),
     db: Session = Depends(get_db),
 ):
-    """Upload a physical package image for field-inspector audit."""
-    upload = file or image
-    if not upload:
-        raise HTTPException(status_code=422, detail="Provide image as 'file' or 'image' field.")
+    """Upload physical package images for field-inspector audit."""
+    if not images:
+        raise HTTPException(status_code=422, detail="Provide image as 'images' field.")
 
     product = Product(barcode=barcode or "", source_type=SourceType.FIELD_UPLOAD)
     db.add(product)
     db.commit()
     db.refresh(product)
 
-    ext = os.path.splitext(upload.filename or "")[1] or ".jpg"
-    image_path = os.path.join(settings.UPLOAD_DIR, f"{product.id}{ext}")
-    with open(image_path, "wb") as f:
-        shutil.copyfileobj(upload.file, f)
-    product.package_image_path = image_path
+    image_paths = []
+    for idx, upload in enumerate(images):
+        ext = os.path.splitext(upload.filename or "")[1] or ".jpg"
+        image_path = os.path.join(settings.UPLOAD_DIR, f"{product.id}_{idx}{ext}")
+        with open(image_path, "wb") as f:
+            shutil.copyfileobj(upload.file, f)
+        image_paths.append(image_path)
+
+    if image_paths:
+        product.package_image_path = image_paths[0]  # Just save the first one for backwards compatibility
     db.commit()
 
     audit = AuditLog(
@@ -175,7 +178,7 @@ def audit_from_upload(
     db.refresh(audit)
 
     try:
-        _run_ai_and_reconcile(db, product, audit, image_path)
+        _run_ai_and_reconcile(db, product, audit, image_paths)
     except Exception as e:
         logger.error(f"Upload audit failed: {e}", exc_info=True)
         audit.status = AuditStatus.ERROR
@@ -211,7 +214,7 @@ def audit_bulk_upload(images: list[UploadFile] = File(...), db: Session = Depend
         db.refresh(audit)
 
         try:
-            _run_ai_and_reconcile(db, product, audit, image_path)
+            _run_ai_and_reconcile(db, product, audit, [image_path])
         except Exception as e:
             audit.status = AuditStatus.ERROR
             db.commit()
@@ -220,6 +223,63 @@ def audit_bulk_upload(images: list[UploadFile] = File(...), db: Session = Depend
 
     return {"accepted": accepted, "count": len(accepted)}
 
+
+@router.post("/barcode", response_model=AuditTaskAccepted, status_code=202)
+def audit_from_barcode(
+    image: UploadFile = File(...),
+    location_lat: float = Form(None),
+    location_lng: float = Form(None),
+    location_address: str = Form(None),
+    db: Session = Depends(get_db),
+):
+    """Scan barcode from image, lookup product, and run audit."""
+    from app.services.barcode import decode_barcode, lookup_product_by_barcode
+    
+    product = Product(source_type=SourceType.FIELD_UPLOAD)
+    db.add(product)
+    db.commit()
+    db.refresh(product)
+    
+    ext = os.path.splitext(image.filename or "")[1] or ".jpg"
+    image_path = os.path.join(settings.UPLOAD_DIR, f"{product.id}_barcode{ext}")
+    with open(image_path, "wb") as f:
+        shutil.copyfileobj(image.file, f)
+    
+    barcode = decode_barcode(image_path)
+    if not barcode:
+        raise HTTPException(status_code=400, detail="No barcode found in image.")
+    
+    product.barcode = barcode
+    product.package_image_path = image_path
+    
+    p_data = lookup_product_by_barcode(barcode)
+    
+    audit = AuditLog(
+        product_id=product.id,
+        status=AuditStatus.PROCESSING,
+        location_lat=location_lat,
+        location_lng=location_lng,
+        location_address=location_address,
+        product_name=p_data["product_name"],
+        brand_name=p_data["brand_name"],
+        scan_timestamp=datetime.utcnow()
+    )
+    db.add(audit)
+    db.commit()
+    db.refresh(audit)
+    
+    try:
+        _run_ai_and_reconcile(db, product, audit, [image_path])
+    except Exception as e:
+        logger.error(f"Barcode audit failed: {e}", exc_info=True)
+        audit.status = AuditStatus.ERROR
+        audit.completed_at = datetime.utcnow()
+        db.commit()
+        
+    db.refresh(audit)
+    return AuditTaskAccepted(
+        product_id=product.id, audit_id=audit.id, task_id="sync", status=audit.status
+    )
 
 @router.get("/{audit_id}", response_model=AuditLogOut)
 def get_audit(audit_id: uuid.UUID, db: Session = Depends(get_db)):
@@ -240,12 +300,20 @@ def get_audit_report(audit_id: uuid.UUID, db: Session = Depends(get_db)):
         for v in audit.violations
     ]
     product_url = audit.product.url or f"Field Upload - Barcode: {audit.product.barcode}"
+    extracted_declarations = {
+        "MRP": getattr(audit, "physical_mrp", None),
+        "Net Weight": getattr(audit, "physical_net_weight", None),
+        "Manufacturer": getattr(audit, "physical_manufacturer", None),
+        "Country of Origin": getattr(audit, "physical_country_of_origin", None),
+        "Consumer Care": getattr(audit, "physical_consumer_care", None)
+    }
     pdf_path = generate_legal_notice_pdf(
         audit_id=str(audit.id), product_url=product_url,
         violations=violations, compliance_score=audit.compliance_score or 0,
         product_name=audit.product_name, brand_name=audit.brand_name,
         scan_timestamp=audit.scan_timestamp, location_address=audit.location_address,
-        image_path=getattr(audit.product, "package_image_path", None)
+        image_path=getattr(audit.product, "package_image_path", None),
+        extracted_declarations=extracted_declarations
     )
     return FileResponse(pdf_path, media_type="application/pdf",
                         filename=f"legal_notice_{audit.id}.pdf")

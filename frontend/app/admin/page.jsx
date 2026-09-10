@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import TopNav from "../../components/TopNav";
 import { fetchUsers, updateUser, deleteUser, exportUsersUrl } from "../../lib/api";
 import { getRole } from "../../lib/auth";
 import { DEMO_INSPECTIONS } from "../../lib/demoData";
@@ -31,6 +30,14 @@ export default function AdminPage() {
     load();
   }, []);
 
+  async function handleVerify(username) {
+    if (useDemo) { alert("Demo mode: Verify action ignored."); return; }
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/v1/auth/verify-user/${username}`, { method: 'POST' });
+      if(res.ok) alert("User verified successfully");
+    } catch(e) { console.error(e); }
+  }
+
   async function toggleActive(user) {
     if (useDemo) {
       setUsers(users.map(u => u.id === user.id ? { ...u, is_active: !u.is_active } : u));
@@ -52,7 +59,6 @@ export default function AdminPage() {
 
   return (
     <div className="page-enter">
-      <TopNav title="Admin Panel" subtitle="System administration and user management" />
       <div className="p-6 space-y-6">
         {/* Tab Nav */}
         <div className="flex gap-2">
@@ -110,9 +116,7 @@ export default function AdminPage() {
                             u.is_active ? "bg-green-50 text-green-700 border border-green-200" : "bg-red-50 text-red-700 border border-red-200"
                           }`}>{u.is_active ? "✓ Active" : "✕ Disabled"}</button>
                       </td>
-                      <td className="table-cell">
-                        <button className="text-blue-600 text-xs font-semibold hover:underline mr-3">Edit</button>
-                      </td>
+                      <td className="table-cell"><button className="text-blue-600 text-xs font-semibold hover:underline mr-3">Edit</button><button onClick={() => handleVerify(u.username)} className="text-green-600 text-xs font-semibold hover:underline">Verify</button></td>
                     </tr>
                   ))}
                 </tbody>

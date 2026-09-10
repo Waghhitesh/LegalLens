@@ -39,12 +39,7 @@ except Exception as e:
     CV2_OK = False
 
 
-# ── Stub bounding boxes returned when AI is unavailable ──────────────────────
-STUB_BOXES = {
-    "mrp": {"x": 40, "y": 220, "w": 140, "h": 30},
-    "net_weight": {"x": 40, "y": 260, "w": 160, "h": 28},
-    "manufacturer": {"x": 40, "y": 300, "w": 300, "h": 40},
-}
+# ── No stub bounding boxes used ──────────────────────
 
 
 def crop_pdp(image_path: str) -> str:
@@ -68,17 +63,19 @@ def crop_pdp(image_path: str) -> str:
     return image_path
 
 
-def _ollama_extract(image_path: str) -> dict:
+def _ollama_extract(image_paths: list[str]) -> dict:
     """Use Ollama llava to extract structured label data."""
     from app.core.config import settings
     import httpx
 
-    with open(image_path, "rb") as f:
-        img_b64 = base64.b64encode(f.read()).decode()
+    img_b64s = []
+    for image_path in image_paths:
+        with open(image_path, "rb") as f:
+            img_b64s.append(base64.b64encode(f.read()).decode())
 
     prompt = (
         "You are a Legal Metrology compliance expert. Look at this product package image. "
-        "Extract ONLY the following fields and return ONLY a JSON object with no extra text:\n"
+        "Look for MRP printed as ₹, Rs, MRP, etc. Extract ONLY the following fields and return ONLY a JSON object with no extra text:\n"
         '{"mrp": <number or null>, "net_weight": "<string or null>", '
         '"manufacturer": "<string or null>", "country_of_origin": "<string or null>", '
         '"consumer_care": "<string or null>", "expiry_date": "<string or null>"}'
@@ -88,7 +85,7 @@ def _ollama_extract(image_path: str) -> dict:
         resp = httpx.post(
             f"{settings.OLLAMA_BASE_URL}/api/generate",
             json={"model": settings.OLLAMA_VISION_MODEL, "prompt": prompt,
-                  "images": [img_b64], "stream": False},
+                  "images": img_b64s, "stream": False},
             timeout=settings.OLLAMA_TIMEOUT_SECONDS,
         )
         resp.raise_for_status()
@@ -101,7 +98,7 @@ def _ollama_extract(image_path: str) -> dict:
     return {}
 
 
-def extract_label_data(image_path: str) -> dict:
+def extract_label_data(image_paths: list[str]) -> dict:
     """
     Run OCR for bounding boxes + Ollama for structured JSON extraction.
     Returns dict with mrp, net_weight, manufacturer, country_of_origin,
@@ -109,49 +106,49 @@ def extract_label_data(image_path: str) -> dict:
     """
     # 1. OCR for bounding boxes
     field_bounding_boxes = {}
+    ocr_full_text = ""
     if OCR_OK:
         try:
-            results = _ocr.readtext(image_path)
-            for bbox, text, conf in results:
-                xs = [p[0] for p in bbox]
-                ys = [p[1] for p in bbox]
-                box = {"x": int(min(xs)), "y": int(min(ys)),
-                       "w": int(max(xs) - min(xs)), "h": int(max(ys) - min(ys))}
-                t = text.lower()
-                if ("mrp" in t or "₹" in t or "rs" in t) and "mrp" not in field_bounding_boxes:
-                    field_bounding_boxes["mrp"] = box
-                elif any(u in t for u in ["g", "kg", "ml", "net"]) and "net_weight" not in field_bounding_boxes:
-                    field_bounding_boxes["net_weight"] = box
-                elif "india" in t and "country_of_origin" not in field_bounding_boxes:
-                    field_bounding_boxes["country_of_origin"] = box
+            for image_path in image_paths:
+                results = _ocr.readtext(image_path)
+                for bbox, text, conf in results:
+                    ocr_full_text += text + " "
+                    xs = [p[0] for p in bbox]
+                    ys = [p[1] for p in bbox]
+                    box = {"x": int(min(xs)), "y": int(min(ys)),
+                           "w": int(max(xs) - min(xs)), "h": int(max(ys) - min(ys))}
+                    t = text.lower()
+                    if ("mrp" in t or "₹" in t or "rs" in t) and "mrp" not in field_bounding_boxes:
+                        field_bounding_boxes["mrp"] = box
+                    elif any(u in t for u in ["g", "kg", "ml", "net"]) and "net_weight" not in field_bounding_boxes:
+                        field_bounding_boxes["net_weight"] = box
+                    elif "india" in t and "country_of_origin" not in field_bounding_boxes:
+                        field_bounding_boxes["country_of_origin"] = box
         except Exception as e:
             logger.error(f"OCR failed: {e}")
 
     # 2. Ollama vision extraction
-    extracted = _ollama_extract(image_path)
+    extracted = _ollama_extract(image_paths)
+    
+    # 3. Post-processing regex fallback on OCR text if Ollama misses MRP or weight
+    if extracted.get("mrp") is None and ocr_full_text:
+        m = re.search(r"(?:MRP|₹|Rs\.?)\s*[:]?\s*([\d,]+(?:\.\d{1,2})?)", ocr_full_text, re.IGNORECASE)
+        if m:
+            extracted["mrp"] = float(m.group(1).replace(",", ""))
+    
+    if extracted.get("net_weight") is None and ocr_full_text:
+        m = re.search(r"(\d+\.?\d*\s?(?:g|kg|ml|l|L|litre|liter|gram|grams))\b", ocr_full_text, re.IGNORECASE)
+        if m:
+            extracted["net_weight"] = m.group(1)
 
-    # Fallback stub values if both fail
-    if not extracted:
-        import random
-        extracted = {
-            "mrp": round(random.uniform(90, 110), 2),
-            "net_weight": "500g",
-            "manufacturer": "Sample Manufacturer Pvt. Ltd., Industrial Area, India",
-            "country_of_origin": "India",
-            "consumer_care": "1800-000-0000",
-            "expiry_date": "12/2027",
-        }
-        field_bounding_boxes = STUB_BOXES
-
-    extracted["field_bounding_boxes"] = field_bounding_boxes or STUB_BOXES
+    extracted["field_bounding_boxes"] = field_bounding_boxes
     return extracted
 
 
 def calculate_font_height(image_path: str, reference_width: float = 80.0) -> Optional[float]:
     """Estimate font height in mm using OCR bounding boxes."""
     if not OCR_OK:
-        import random
-        return round(random.uniform(0.8, 4.5), 2)
+        return None
     try:
         results = _ocr.readtext(image_path)
         if not results:

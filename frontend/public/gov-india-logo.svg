@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 190" role="img" aria-label="Government of India header lockup template">
+  <rect width="920" height="190" rx="12" fill="#FFFFFF"/>
+  <g transform="translate(28 20)">
+    <rect width="130" height="130" rx="8" fill="#F8FAFC"/>
+    <text x="65" y="58" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" fill="#64748B">OFFICIAL</text>
+    <text x="65" y="82" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#64748B">EMBLEM</text>
+    <text x="65" y="103" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#94A3B8">Insert official</text>
+    <text x="65" y="118" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#94A3B8">GOI SVG here</text>
+  </g>
+  <line x1="184" y1="28" x2="184" y2="158" stroke="#CBD5E1"/>
+  <text x="210" y="62" font-family="Arial, sans-serif" font-size="20" font-weight="700" fill="#17233C">भारत सरकार</text>
+  <text x="210" y="91" font-family="Arial, sans-serif" font-size="19" font-weight="700" fill="#17233C">Government of India</text>
+  <text x="210" y="123" font-family="Arial, sans-serif" font-size="15" fill="#475569">Ministry of Consumer Affairs, Food &amp; Public Distribution</text>
+  <path d="M210 145H810" stroke="#F59E0B" stroke-width="4"/>
+  <path d="M210 150H810" stroke="#FFFFFF" stroke-width="4"/>
+  <path d="M210 155H810" stroke="#138A45" stroke-width="4"/>
+</svg>

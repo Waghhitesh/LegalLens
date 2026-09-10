@@ -2,12 +2,12 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import TopNav from "../../components/TopNav";
 import { DEMO_INSPECTIONS } from "../../lib/demoData";
 
 export default function InspectionsPage() {
   const [filter, setFilter] = useState("all");
   const [search, setSearch] = useState("");
+  const [selected, setSelected] = useState(null);
 
   const filtered = DEMO_INSPECTIONS.filter(i => {
     if (filter !== "all" && i.status !== filter) return false;
@@ -16,9 +16,7 @@ export default function InspectionsPage() {
   });
 
   return (
-    <div className="page-enter">
-      <TopNav title="Inspections" subtitle="Inspection history and records" />
-      <div className="p-6 space-y-6">
+      <div className="p-6 space-y-6 mt-4 relative">
         {/* Filters */}
         <div className="flex flex-wrap items-center gap-3">
           <input type="text" placeholder="Search by product or ID..." value={search} onChange={(e) => setSearch(e.target.value)}
@@ -74,7 +72,7 @@ export default function InspectionsPage() {
                       </div>
                     </td>
                     <td className="table-cell">
-                      <button className="text-blue-600 text-xs font-semibold hover:underline">View →</button>
+                      <button onClick={() => setSelected(ins)} className="text-blue-600 text-xs font-semibold hover:underline">View →</button>
                     </td>
                   </tr>
                 ))}
@@ -82,7 +80,31 @@ export default function InspectionsPage() {
             </table>
           </div>
         </div>
+
+        {/* Modal */}
+        {selected && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+            <div className="bg-white rounded-xl shadow-xl w-full max-w-lg p-6 relative">
+              <button onClick={() => setSelected(null)} className="absolute top-4 right-4 text-slate-400 hover:text-slate-800 text-xl font-bold">×</button>
+              <h2 className="text-lg font-bold text-slate-800 mb-4">Inspection Details</h2>
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-2">
+                  <p className="text-sm text-slate-500">ID:</p><p className="text-sm font-medium">{selected.id}</p>
+                  <p className="text-sm text-slate-500">Product:</p><p className="text-sm font-medium">{selected.product}</p>
+                  <p className="text-sm text-slate-500">Manufacturer:</p><p className="text-sm font-medium">{selected.manufacturer}</p>
+                  <p className="text-sm text-slate-500">Date:</p><p className="text-sm font-medium">{selected.date}</p>
+                  <p className="text-sm text-slate-500">Inspector:</p><p className="text-sm font-medium">{selected.inspector}</p>
+                  <p className="text-sm text-slate-500">Status:</p><p className="text-sm font-medium capitalize">{selected.status}</p>
+                  <p className="text-sm text-slate-500">Score:</p><p className="text-sm font-medium">{selected.score}</p>
+                  <p className="text-sm text-slate-500">Issues Count:</p><p className="text-sm font-medium">{selected.issues}</p>
+                </div>
+              </div>
+              <div className="mt-6 flex justify-end">
+                <button onClick={() => setSelected(null)} className="btn-primary px-4 py-2 text-sm rounded-lg">Close</button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
-    </div>
   );
 }

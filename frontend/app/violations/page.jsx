@@ -1,13 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import TopNav from "../../components/TopNav";
 import { DEMO_VIOLATIONS } from "../../lib/demoData";
 import { SEVERITY_CONFIG } from "../../lib/rules";
 
 export default function ViolationsPage() {
   const [filter, setFilter] = useState("all");
   const [severityFilter, setSeverityFilter] = useState("all");
+  const [selected, setSelected] = useState(null);
 
   const filtered = DEMO_VIOLATIONS.filter(v => {
     if (filter !== "all" && v.status !== filter) return false;
@@ -16,8 +16,7 @@ export default function ViolationsPage() {
   });
 
   return (
-    <div className="page-enter">
-      <TopNav title="Violations" subtitle="Track and manage detected compliance violations" />
+    <div className="relative">
       <div className="p-6 space-y-6">
         {/* Stats */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -93,7 +92,7 @@ export default function ViolationsPage() {
                         }`}>{v.status.charAt(0).toUpperCase() + v.status.slice(1)}</span>
                       </td>
                       <td className="table-cell">
-                        <button className="text-blue-600 text-xs font-semibold hover:underline">View →</button>
+                        <button onClick={() => setSelected(v)} className="text-blue-600 text-xs font-semibold hover:underline">View →</button>
                       </td>
                     </tr>
                   );
@@ -102,6 +101,32 @@ export default function ViolationsPage() {
             </table>
           </div>
         </div>
+        
+        {/* Modal */}
+        {selected && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+            <div className="bg-white rounded-xl shadow-xl w-full max-w-lg p-6 relative">
+              <button onClick={() => setSelected(null)} className="absolute top-4 right-4 text-slate-400 hover:text-slate-800 text-xl font-bold">×</button>
+              <h2 className="text-lg font-bold text-slate-800 mb-4">Violation Details</h2>
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-2">
+                  <p className="text-sm text-slate-500">ID:</p><p className="text-sm font-medium">{selected.id}</p>
+                  <p className="text-sm text-slate-500">Product:</p><p className="text-sm font-medium">{selected.product}</p>
+                  <p className="text-sm text-slate-500">Manufacturer:</p><p className="text-sm font-medium">{selected.manufacturer}</p>
+                  <p className="text-sm text-slate-500">Violation:</p><p className="text-sm font-medium">{selected.violation}</p>
+                  <p className="text-sm text-slate-500">Date:</p><p className="text-sm font-medium">{selected.date}</p>
+                  <p className="text-sm text-slate-500">Confidence:</p><p className="text-sm font-medium">{selected.confidence}%</p>
+                  <p className="text-sm text-slate-500">Severity:</p><p className="text-sm font-medium capitalize">{selected.severity}</p>
+                  <p className="text-sm text-slate-500">Status:</p><p className="text-sm font-medium capitalize">{selected.status}</p>
+                </div>
+              </div>
+              <div className="mt-6 flex justify-end gap-3">
+                <button onClick={() => setSelected(null)} className="px-4 py-2 text-sm border border-slate-200 rounded-lg font-medium hover:bg-slate-50">Close</button>
+                <button onClick={() => setSelected(null)} className="px-4 py-2 text-sm bg-navy text-white rounded-lg font-medium">Update Status</button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

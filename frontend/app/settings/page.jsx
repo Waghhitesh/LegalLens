@@ -1,11 +1,9 @@
 "use client";
-import TopNav from "../../components/TopNav";
 import { RULE_CATEGORIES } from "../../lib/rules";
 
 export default function SettingsPage() {
   return (
-    <div className="page-enter">
-      <TopNav title="Settings" subtitle="System configuration and rule engine" />
+    <div className="relative">
       <div className="p-6 space-y-6">
         {/* Rule Engine */}
         <div className="card p-6">

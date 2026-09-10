@@ -29,6 +29,7 @@ def generate_legal_notice_pdf(
     scan_timestamp: Optional[datetime] = None,
     location_address: Optional[str] = None,
     image_path: Optional[str] = None,
+    extracted_declarations: Optional[dict] = None,
 ) -> str:
     os.makedirs(settings.REPORTS_DIR, exist_ok=True)
     file_path = os.path.join(settings.REPORTS_DIR, f"legal_notice_{audit_id}.pdf")
@@ -48,8 +49,23 @@ def generate_legal_notice_pdf(
 
     # === HEADER ===
     story.append(HRFlowable(width="100%", thickness=3, color=GOLD, spaceAfter=4))
-    story.append(Paragraph("GOVERNMENT OF INDIA", title_style))
-    story.append(Paragraph("MINISTRY OF CONSUMER AFFAIRS, FOOD & PUBLIC DISTRIBUTION", title_style))
+    
+    logo_added = False
+    try:
+        from svglib.svglib import svg2rlg
+        logo_path = os.path.join(os.path.dirname(settings.BASE_DIR), "frontend", "public", "gov-india-logo.svg")
+        if os.path.exists(logo_path):
+            drawing = svg2rlg(logo_path)
+            drawing.renderScale = 0.5
+            story.append(drawing)
+            logo_added = True
+    except Exception:
+        pass
+
+    if not logo_added:
+        story.append(Paragraph("GOVERNMENT OF INDIA", title_style))
+        story.append(Paragraph("MINISTRY OF CONSUMER AFFAIRS, FOOD & PUBLIC DISTRIBUTION", title_style))
+    
     story.append(Paragraph("DEPARTMENT OF CONSUMER AFFAIRS — LEGAL METROLOGY DIVISION", sub_style))
     story.append(Paragraph("INSPECTION REPORT UNDER LEGAL METROLOGY (PACKAGED COMMODITIES) RULES, 2011", sub_style))
     story.append(HRFlowable(width="100%", thickness=1, color=GOLD, spaceAfter=8))
@@ -112,6 +128,26 @@ def generate_legal_notice_pdf(
     story.append(prod_outer)
     story.append(Spacer(1, 6*mm))
 
+    # === EXTRACTED DECLARATIONS ===
+    if extracted_declarations:
+        story.append(Paragraph("<b>EXTRACTED DECLARATIONS</b>", sub_style))
+        story.append(HRFlowable(width="100%", thickness=0.5, color=colors.HexColor("#cbd5e1"), spaceAfter=4))
+        ext_data = []
+        for k, v in extracted_declarations.items():
+            ext_data.append([Paragraph(f"<b>{k}</b>", body_style), Paragraph(str(v) if v else "Not Found", body_style)])
+        
+        if ext_data:
+            ext_table = Table(ext_data, colWidths=[55*mm, 110*mm])
+            ext_table.setStyle(TableStyle([
+                ("FONTSIZE", (0,0), (-1,-1), 9),
+                ("VALIGN", (0,0), (-1,-1), "TOP"),
+                ("GRID", (0,0), (-1,-1), 0.3, colors.HexColor("#cbd5e1")),
+                ("TOPPADDING", (0,0), (-1,-1), 3),
+                ("BOTTOMPADDING", (0,0), (-1,-1), 3),
+            ]))
+            story.append(ext_table)
+            story.append(Spacer(1, 6*mm))
+
     # === VIOLATIONS ===
     story.append(Paragraph("<b>VIOLATIONS IDENTIFIED</b>", sub_style))
     story.append(HRFlowable(width="100%", thickness=0.5, color=colors.HexColor("#cbd5e1"), spaceAfter=4))
@@ -137,6 +173,28 @@ def generate_legal_notice_pdf(
             ("BOTTOMPADDING", (0,0), (-1,-1), 4),
         ]))
         story.append(viol_table)
+
+    story.append(Spacer(1, 6*mm))
+    
+    # === COMPLIANCE CHECKLIST ===
+    story.append(Paragraph("<b>COMPLIANCE CHECKLIST & LEGAL REFERENCES</b>", sub_style))
+    story.append(HRFlowable(width="100%", thickness=0.5, color=colors.HexColor("#cbd5e1"), spaceAfter=4))
+    
+    checklist_data = [
+        [Paragraph("<b>Rule 6: Mandatory Declarations</b>", body_style), Paragraph("MRP, Weight, Manufacturer present", body_style)],
+        [Paragraph("<b>Rule 7: Font Size</b>", body_style), Paragraph("Legible size based on package area", body_style)],
+        [Paragraph("<b>Rule 18: Overcharging</b>", body_style), Paragraph("Selling price <= MRP", body_style)],
+        [Paragraph("<b>Reference</b>", body_style), Paragraph("Legal Metrology (Packaged Commodities) Rules, 2011", body_style)]
+    ]
+    check_table = Table(checklist_data, colWidths=[60*mm, 110*mm])
+    check_table.setStyle(TableStyle([
+        ("FONTSIZE", (0,0), (-1,-1), 9),
+        ("VALIGN", (0,0), (-1,-1), "TOP"),
+        ("GRID", (0,0), (-1,-1), 0.3, colors.HexColor("#cbd5e1")),
+        ("TOPPADDING", (0,0), (-1,-1), 3),
+        ("BOTTOMPADDING", (0,0), (-1,-1), 3),
+    ]))
+    story.append(check_table)
 
     story.append(Spacer(1, 8*mm))
     story.append(HRFlowable(width="100%", thickness=1, color=GOLD, spaceAfter=4))

@@ -55,10 +55,14 @@ export default function Login() {
         <div className="absolute left-10 top-10 pointer-events-none opacity-[0.06]">
           <img src="/emblem.svg" alt="" className="w-[800px] h-[800px] object-contain filter sepia hue-rotate-15 saturate-200" />
         </div>
+        <div className="absolute right-0 bottom-0 pointer-events-none opacity-[0.1] mix-blend-overlay">
+          <img src="/parliament.png" alt="" className="w-[600px] h-auto object-contain" />
+        </div>
         
         {/* Tricolour swoop (abstract) */}
-        <div className="absolute bottom-0 left-0 w-full h-32 opacity-80" style={{ background: 'linear-gradient(90deg, #F59E0B 0%, #FFFFFF 50%, #16A34A 100%)', maskImage: 'radial-gradient(ellipse at bottom, white 0%, transparent 70%)', WebkitMaskImage: 'radial-gradient(ellipse at bottom, white 0%, transparent 70%)' }}></div>
-        <div className="absolute bottom-0 left-0 w-full h-24 opacity-60 mix-blend-overlay" style={{ background: 'url(data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0IiBoZWlnaHQ9IjQiPjxyZWN0IHdpZHRoPSI0IiBoZWlnaHQ9IjQiIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4wNSIvPjwvc3ZnPg==)'}}></div>
+        <div className="absolute bottom-0 left-0 w-full pointer-events-none opacity-80">
+          <img src="/tricolour-wave.png" alt="" className="w-full h-auto object-cover" />
+        </div>
 
         {/* Top Header */}
         <div className="relative z-10 p-12 w-full">
@@ -112,11 +116,7 @@ export default function Login() {
         {/* Bottom Logo & Footer inside left panel */}
         <div className="mt-auto p-12 relative z-10 flex justify-between items-end">
            <div className="flex items-center gap-4">
-              <img src="/emblem.svg" alt="" className="w-12 h-16 object-contain filter drop-shadow-md brightness-0 invert opacity-90"/>
-              <div>
-                <p className="text-[14px] font-black text-white leading-tight">Department of Consumer Affairs</p>
-                <p className="text-[11px] font-bold text-white/70">Government of India</p>
-              </div>
+              <img src="/gov-india-logo.svg" alt="Government of India" className="h-12 object-contain filter drop-shadow-md brightness-0 invert opacity-90"/>
            </div>
            
            <div className="flex items-center gap-6 text-[10px] text-white/50 font-bold uppercase tracking-widest">
@@ -133,9 +133,7 @@ export default function Login() {
         <div className="w-full max-w-[420px] bg-white rounded-[24px] p-10 shadow-[0_20px_60px_rgb(0,0,0,0.08)] border border-[#D9E1EC] relative overflow-hidden">
           
           <div className="flex flex-col items-center mb-8">
-            <img src="/emblem.svg" alt="Emblem" className="w-12 h-14 object-contain mb-3"/>
-            <h1 className="text-[16px] font-black text-[#10264A] text-center leading-tight">भारत सरकार<br/>Government of India</h1>
-            <p className="text-[9px] font-bold text-[#64748B] text-center mt-1">Ministry of Consumer Affairs, Food &amp; Public Distribution</p>
+            <img src="/gov-india-logo.svg" alt="Government of India" className="h-16 object-contain mb-3"/>
           </div>
 
           <div className="text-center mb-8">

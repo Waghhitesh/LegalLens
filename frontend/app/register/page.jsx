@@ -22,7 +22,7 @@ export default function RegisterPage() {
     e.preventDefault();
     setLoading(true); setError(null);
     try {
-      const res = await fetch("http://localhost:8000/api/v1/auth/otp/request", {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/v1/auth/otp/request`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ target, purpose: "register" }),
@@ -37,7 +37,7 @@ export default function RegisterPage() {
     e.preventDefault();
     setLoading(true); setError(null);
     try {
-      const res = await fetch("http://localhost:8000/api/v1/auth/register", {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/v1/auth/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...form, otp_target: target }),
@@ -48,7 +48,7 @@ export default function RegisterPage() {
     } catch (err) {
       // Fallback: try direct register
       try {
-        const res2 = await fetch("http://localhost:8000/api/v1/auth/register-direct", {
+        const res2 = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/v1/auth/register-direct`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ username: form.username, password: form.password, role: form.role, full_name: form.full_name, organisation: form.organisation, email: target, area_jurisdiction: form.area_jurisdiction }),
@@ -61,14 +61,15 @@ export default function RegisterPage() {
   }
 
   return (
-    <div style={{ marginLeft: 0 }} className="min-h-screen flex relative overflow-hidden" style={{ background: "linear-gradient(135deg, #0ea5e9 0%, #1d4ed8 50%, #1e3a8a 100%)", marginLeft: 0 }}>
-      <div className="absolute bottom-0 left-0 w-full overflow-hidden" style={{ height: "200px" }}>
-        <svg viewBox="0 0 1440 200" className="w-full h-full" preserveAspectRatio="none">
-          <path d="M0,160 C200,100 400,200 600,140 C800,80 1000,180 1200,120 C1320,80 1380,100 1440,90 L1440,200 L0,200 Z" fill="white" fillOpacity="0.15" />
-        </svg>
+    <div className="min-h-screen flex relative overflow-hidden" style={{ background: "linear-gradient(135deg, #0B1F3A 0%, #10264A 50%, #1557C0 100%)" }}>
+      <div className="absolute right-0 bottom-0 pointer-events-none opacity-[0.1] mix-blend-overlay">
+        <img src="/parliament.png" alt="" className="w-[600px] h-auto object-contain" />
+      </div>
+      <div className="absolute bottom-0 left-0 w-full pointer-events-none opacity-80">
+        <img src="/tricolour-wave.png" alt="" className="w-full h-auto object-cover" />
       </div>
       <div className="flex-1 flex flex-col justify-center px-16 relative z-10">
-        <div className="w-16 h-16 bg-white/20 backdrop-blur rounded-2xl flex items-center justify-center text-3xl mb-4">⚖️</div>
+        <div className="mb-6 flex flex-col items-start"><img src="/gov-india-logo.svg" alt="Government of India" className="h-16 object-contain filter brightness-0 invert opacity-90 mb-4"/></div>
         <h1 className="text-5xl font-black text-white leading-tight">Join<br/>LegalLens</h1>
         <p className="text-white/80 text-lg mt-3 max-w-md">Create your account to access the AI-powered compliance inspection platform</p>
       </div>
@@ -91,7 +92,7 @@ export default function RegisterPage() {
               </div>
               {error && <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-xl border border-red-200">{error}</p>}
               <button type="submit" disabled={loading}
-                className="w-full py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-bold rounded-xl disabled:opacity-60">
+                className="w-full py-3 bg-[#D9A928] hover:bg-[#b0871e] text-[#10264A] font-bold rounded-xl disabled:opacity-60 transition-colors">
                 {loading ? "Sending..." : "Send OTP"}
               </button>
               <p className="text-xs text-center text-slate-400">Already have an account? <a href="/login" className="text-blue-600 font-semibold">Sign in</a></p>
@@ -135,7 +136,7 @@ export default function RegisterPage() {
               </div>
               {error && <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-xl border border-red-200">{error}</p>}
               <button type="submit" disabled={loading}
-                className="w-full py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-bold rounded-xl disabled:opacity-60">
+                className="w-full py-3 bg-[#D9A928] hover:bg-[#b0871e] text-[#10264A] font-bold rounded-xl disabled:opacity-60 transition-colors">
                 {loading ? "Creating account..." : "Create Account"}
               </button>
             </form>

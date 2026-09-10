@@ -1,6 +1,5 @@
 "use client";
 
-import TopNav from "../../components/TopNav";
 import { DEMO_STATS, DEMO_VIOLATIONS, DEMO_MANUFACTURERS } from "../../lib/demoData";
 import { Bar, Doughnut, Line } from "react-chartjs-2";
 import {
@@ -16,7 +15,7 @@ export default function AnalyticsPage() {
 
   return (
     <div className="page-enter">
-      <TopNav title="Analytics" subtitle="Compliance analytics and insights" />
+      
       <div className="p-6 space-y-6">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Compliance Trend */}

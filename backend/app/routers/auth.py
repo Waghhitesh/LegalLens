@@ -82,6 +82,20 @@ def register(payload: RegisterRequest, db: Session = Depends(get_db)):
     db.add(user)
     db.commit()
     db.refresh(user)
+    
+    try:
+        from app.routers.notifications import append_notification
+        append_notification({
+            "id": str(user.id),
+            "type": "new_user",
+            "title": "New User Registration",
+            "message": f"{user.username} registered as {user.role.value}",
+            "timestamp": datetime.utcnow().isoformat(),
+            "severity": "INFO",
+        })
+    except Exception:
+        pass
+        
     return user
 
 

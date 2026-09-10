@@ -54,9 +54,20 @@ def _try_json_ld(soup: BeautifulSoup) -> dict:
 
 
 def scrape_product_page(url: str) -> ScrapedData:
-    response = requests.get(url, headers=HEADERS, timeout=15)
-    response.raise_for_status()
-    soup = BeautifulSoup(response.text, "lxml")
+    try:
+        response = requests.get(url, headers=HEADERS, timeout=15)
+        response.raise_for_status()
+        soup = BeautifulSoup(response.text, "lxml")
+    except requests.RequestException as e:
+        print(f"Failed to fetch {url}: {e}")
+        return ScrapedData(
+            mrp=None,
+            net_weight=None,
+            manufacturer=None,
+            country_of_origin=None,
+            consumer_care=None,
+            image_url=None,
+        )
 
     mrp = None
     net_weight = None
@@ -95,13 +106,23 @@ def scrape_product_page(url: str) -> ScrapedData:
             "._30jeq3",            # Flipkart
             "[class*='price']:not([class*='original']):not([class*='strike'])",
             "[id*='price']",
+            ".product-price",
+            ".price-value",
+            "meta[itemprop='price']"
         ]
         for sel in selectors:
-            el = soup.select_one(sel)
-            if el:
-                mrp = _parse_price(el.get_text())
-                if mrp:
-                    break
+            if sel.startswith("meta"):
+                el = soup.select_one(sel)
+                if el and el.get("content"):
+                    mrp = _parse_price(el.get("content"))
+                    if mrp:
+                        break
+            else:
+                el = soup.select_one(sel)
+                if el:
+                    mrp = _parse_price(el.get_text())
+                    if mrp:
+                        break
 
     if image_url is None:
         img_selectors = [
@@ -109,12 +130,34 @@ def scrape_product_page(url: str) -> ScrapedData:
             "img._396cs4",         # Flipkart
             "img[class*='product-image']",
             "img[class*='ProductImage']",
+            "meta[property='og:image']",
+            ".main-image img"
         ]
         for sel in img_selectors:
+            if sel.startswith("meta"):
+                el = soup.select_one(sel)
+                if el and el.get("content"):
+                    image_url = el.get("content")
+                    if image_url:
+                        break
+            else:
+                el = soup.select_one(sel)
+                if el:
+                    image_url = el.get("src") or el.get("data-src") or el.get("data-old-hires")
+                    if image_url:
+                        break
+
+    if manufacturer is None:
+        manuf_selectors = [
+            ".brand-name", 
+            "#bylineInfo", 
+            "[class*='brand']"
+        ]
+        for sel in manuf_selectors:
             el = soup.select_one(sel)
             if el:
-                image_url = el.get("src") or el.get("data-src") or el.get("data-old-hires")
-                if image_url:
+                manufacturer = el.get_text(strip=True)
+                if manufacturer:
                     break
 
     # 3. Text-based extraction
@@ -140,9 +183,13 @@ def scrape_product_page(url: str) -> ScrapedData:
 
 
 def download_image(image_url: str, dest_path: str) -> str:
-    response = requests.get(image_url, headers=HEADERS, timeout=15, stream=True)
-    response.raise_for_status()
-    with open(dest_path, "wb") as f:
-        for chunk in response.iter_content(chunk_size=8192):
-            f.write(chunk)
-    return dest_path
+    try:
+        response = requests.get(image_url, headers=HEADERS, timeout=15, stream=True)
+        response.raise_for_status()
+        with open(dest_path, "wb") as f:
+            for chunk in response.iter_content(chunk_size=8192):
+                f.write(chunk)
+        return dest_path
+    except requests.RequestException as e:
+        print(f"Failed to download image from {image_url}: {e}")
+        raise

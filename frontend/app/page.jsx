@@ -210,13 +210,10 @@ export default function Dashboard() {
       
       {/* Institutional Footer */}
       <footer className="mt-12 pt-8 pb-6 border-t border-[#D9E1EC] relative overflow-hidden">
+         <div className="absolute bottom-0 left-0 w-full opacity-20 pointer-events-none">
+            <img src="/tricolour-wave.png" alt="" className="w-full h-24 object-cover" />
+         </div>
          <div className="flex flex-col items-center justify-center relative z-10">
-            {/* Saffron White Green Ribbon */}
-            <div className="flex w-64 h-1 rounded-full overflow-hidden mb-6 opacity-80">
-                <div className="flex-1 bg-[#F59E0B]"></div>
-                <div className="flex-1 bg-slate-200"></div>
-                <div className="flex-1 bg-[#16A34A]"></div>
-            </div>
             <div className="flex flex-col items-center text-center">
               <p className="text-[12px] font-bold text-[#10264A] mb-1">Government of India</p>
               <p className="text-[10px] text-[#64748B] font-bold mb-4">Department of Consumer Affairs</p>

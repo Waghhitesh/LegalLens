@@ -23,13 +23,7 @@ export default function TopNav() {
     <header className="bg-white border-b border-[#D9E1EC] px-6 py-2.5 flex items-center justify-between sticky top-0 z-30 shadow-sm font-sans h-[72px]">
       <div className="flex items-center gap-5">
          <div className="flex items-center gap-3 pr-5 border-r border-slate-200">
-            {/* Government Emblem */}
-            <img src="/emblem.svg" alt="Emblem" className="w-10 h-12 object-contain filter drop-shadow-sm"/>
-            <div>
-               <p className="text-[12px] font-black text-[#10264A] leading-tight">भारत सरकार</p>
-               <p className="text-[11px] font-bold text-[#10264A] leading-tight mt-0.5">Government of India</p>
-               <p className="text-[8px] font-semibold text-[#64748B] mt-0.5">Ministry of Consumer Affairs, Food &amp; Public Distribution</p>
-            </div>
+            <img src="/gov-india-logo.svg" alt="Government of India" className="h-12 object-contain filter drop-shadow-sm"/>
          </div>
       </div>
       

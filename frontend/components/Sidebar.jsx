@@ -12,6 +12,7 @@ const MENU = [
   { name: "Manufacturers", href: "/manufacturers", icon: "🏭" },
   { name: "Analytics", href: "/analytics", icon: "📊" },
   { name: "Reports", href: "/reports", icon: "📄" },
+  { name: "Laws & Rules", href: "/laws", icon: "📜" },
 ];
 
 export default function Sidebar() {

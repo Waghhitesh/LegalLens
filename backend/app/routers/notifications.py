@@ -13,6 +13,11 @@ from app.services.auth_service import get_current_user
 router = APIRouter(prefix="/api/v1/notifications", tags=["notifications"])
 
 
+GLOBAL_NOTIFICATIONS = []
+
+def append_notification(notif: dict):
+    GLOBAL_NOTIFICATIONS.insert(0, notif)
+
 @router.get("")
 def get_notifications(
     db: Session = Depends(get_db),
@@ -27,7 +32,7 @@ def get_notifications(
     ).order_by(AuditLog.completed_at.desc()).limit(limit)
     
     audits = query.all()
-    notifications = []
+    notifications = list(GLOBAL_NOTIFICATIONS)
     for a in audits:
         product_name = getattr(a, 'product_name', None) or (a.product.url[:50] if a.product and a.product.url else 'Unknown Product')
         notifications.append({
@@ -41,5 +46,9 @@ def get_notifications(
             "timestamp": a.completed_at.isoformat() if a.completed_at else datetime.utcnow().isoformat(),
             "severity": "HIGH" if (a.compliance_score or 0) < 40 else "MEDIUM",
         })
+    
+    # Sort and limit
+    notifications.sort(key=lambda x: x.get("timestamp", ""), reverse=True)
+    notifications = notifications[:limit]
     
     return {"notifications": notifications, "count": len(notifications), "unread": len(notifications)}

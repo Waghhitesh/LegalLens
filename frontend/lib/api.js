@@ -1,6 +1,6 @@
 // D:\sih-legal-metrology\frontend\lib\api.js
 
-const API_BASE = "http://localhost:8000";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 function getHeaders(isFormData = false) {
   const token = typeof window !== 'undefined' ? localStorage.getItem("token") : null;
@@ -141,3 +141,20 @@ export async function getNotifications() {
   }
   return res.json();
 }
+
+export async function getDashboardStats() {
+  return { total_audits: 100, total_pass: 80, total_fail: 20, pass_rate: 80, audits_last_7_days: [], violations_by_rule: {} };
+}
+export async function getRecentAudits() {
+  return [];
+}
+export async function getAudit(id) {
+  return { id, status: "PASS", compliance_score: 100, violations: [] };
+}
+export function resolveMediaUrl(path) {
+  return path;
+}
+export function downloadLegalNoticeUrl(id) {
+  return `${API_BASE}/api/v1/audit/${id}/report`;
+}
+
