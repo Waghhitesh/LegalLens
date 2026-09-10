@@ -153,7 +153,6 @@ def audit_from_upload(
     product_name: str = Form(None),
     brand_name: str = Form(None),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
 ):
     """Upload physical package images for field-inspector audit."""
     if not images:
